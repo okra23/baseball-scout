@@ -506,10 +506,11 @@ function levelColor(l) {
 }
 
 function ebayUrl(name) {
-  // Active buy listings, sorted cheapest first (price + shipping ascending)
+  // Search the player's name within Sports Trading Cards (cat 261328),
+  // active listings, sorted cheapest first.
   return 'https://www.ebay.com/sch/i.html?_nkw=' +
-    encodeURIComponent(name + ' baseball card rookie') +
-    '&_sop=15';
+    encodeURIComponent(name) +
+    '&_sacat=261328&_sop=15';
 }
 
 function fmtAvg(v) {
