@@ -181,6 +181,19 @@ body {
   margin-bottom: 12px;
 }
 
+.trend-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.trend-hot    { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.trend-cold   { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.trend-steady { background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; }
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -357,6 +370,48 @@ async function fetchStats(sportId, limit = 40) {
   return r.json();
 }
 
+async function fetchRecentStats(sportId, days = 7, limit = 200) {
+  const end   = new Date();
+  const start = new Date(end - days * 864e5);
+  const fmt   = d => d.toISOString().slice(0,10);
+  const url = `${API}/stats?stats=byDateRange&group=hitting&gameType=R&season=2026` +
+              `&sportId=${sportId}&startDate=${fmt(start)}&endDate=${fmt(end)}` +
+              `&limit=${limit}&sortStat=atBats&order=desc` +
+              `&fields=stats,splits,stat,avg,atBats,player,id`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const d = await r.json();
+    return d?.stats?.[0]?.splits || [];
+  } catch (e) { return []; }
+}
+
+function buildRecentAvgMap(recentSplitsArr) {
+  // Flatten splits from all levels and build playerId -> { l7avg, l7ab }
+  const map = new Map();
+  recentSplitsArr.forEach(splits => {
+    splits.forEach(s => {
+      const id = s.player?.id;
+      const avg = parseFloat(s.stat?.avg || '0');
+      const ab  = parseInt(s.stat?.atBats || '0', 10);
+      if (id && ab >= 5) map.set(id, { l7avg: avg, l7ab: ab });
+    });
+  });
+  return map;
+}
+
+function attachTrend(p, recentMap) {
+  const r = recentMap.get(p.id);
+  if (!r) { p.trend = null; return; }
+  p.l7avg = r.l7avg;
+  p.l7ab  = r.l7ab;
+  const delta = r.l7avg - p.avg;
+  if (delta >= 0.050)      p.trend = 'hot';
+  else if (delta <= -0.050) p.trend = 'cold';
+  else                      p.trend = 'steady';
+  p.trendDelta = delta;
+}
+
 async function fetchTransactions(daysBack = 14) {
   const end   = new Date();
   const start = new Date(end - daysBack * 864e5);
@@ -518,6 +573,22 @@ function fmtAvg(v) {
   return '.' + String(Math.round(v * 1000)).padStart(3,'0');
 }
 
+function fmtDelta(d) {
+  if (d == null || isNaN(d)) return '';
+  const sign = d >= 0 ? '+' : '−';
+  return sign + '.' + String(Math.round(Math.abs(d) * 1000)).padStart(3,'0');
+}
+
+function renderTrendChip(p) {
+  if (!p.trend) return '';
+  const label = {
+    hot:    `🔥 HEATING · L7 ${fmtAvg(p.l7avg)} (${fmtDelta(p.trendDelta)})`,
+    cold:   `❄️ COOLING · L7 ${fmtAvg(p.l7avg)} (${fmtDelta(p.trendDelta)})`,
+    steady: `➡️ STEADY · L7 ${fmtAvg(p.l7avg)}`
+  }[p.trend];
+  return `<span class="trend-chip trend-${p.trend}">${label}</span>`;
+}
+
 function renderCard(p) {
   const u = getUrgency(p.score || 5);
   const meter = Array.from({length:10}, (_,i) =>
@@ -546,6 +617,7 @@ function renderCard(p) {
       <div class="meter">${meter}</div>
       ${p.scoreBreakdown ? `<div class="score-breakdown">${p.scoreBreakdown}</div>` : ''}
       <span class="urgency-badge" style="background:${u.color}18;color:${u.color}">${u.label}</span>
+      ${renderTrendChip(p)}
       ${p.promoted ? '<span style="display:inline-block;margin-left:6px;background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">📈 PROMOTED</span>' : ''}
       <div class="stats-grid">
         <div class="stat"><div class="stat-val">${fmtAvg(p.avg)}</div><div class="stat-lbl">AVG</div></div>
@@ -673,6 +745,18 @@ async function loadData() {
     const aPlayers     = aData.status     === 'fulfilled' ? parseStats(aData.value,     'A')  : [];
     stepDone('step-a');
 
+    /* ── Fetch last-7-day stats per level for trend detection ── */
+    const recentSettled = await Promise.allSettled([
+      fetchRecentStats(1),
+      fetchRecentStats(11),
+      fetchRecentStats(12),
+      fetchRecentStats(13),
+      fetchRecentStats(14),
+    ]);
+    const recentMap = buildRecentAvgMap(
+      recentSettled.map(r => r.status === 'fulfilled' ? r.value : [])
+    );
+
     if (!mlbPlayers.length && !aaaPlayers.length && !aaPlayers.length && !aplusPlayers.length && !aPlayers.length) {
       const errs = [mlbData, aaaData, aaData, aplusData, aData]
         .filter(r => r.status === 'rejected')
@@ -714,6 +798,7 @@ async function loadData() {
     stepActive('step-score');
     let players = [...mlbPlayers, ...aaaPlayers, ...aaPlayers, ...aplusPlayers, ...aPlayers];
     players.forEach(p => {
+      attachTrend(p, recentMap);
       p.score   = scorePlayer(p, promotedIds);
       p.signals = buildSignals(p);
     });
