@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baseball Prospect Scout</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f0f4f8;
+  color: #1e293b;
+  min-height: 100vh;
+}
+
+.app { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+.header {
+  background: linear-gradient(135deg, #1e3a5f, #2563eb);
+  color: white;
+  padding: 20px 24px;
+  border-radius: 14px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  box-shadow: 0 4px 16px rgba(37,99,235,0.2);
+}
+
+.header-title { font-size: 22px; font-weight: 800; margin-bottom: 2px; letter-spacing: -0.5px; }
+.header-sub { font-size: 13px; opacity: 0.75; }
+.header-right { display: flex; align-items: center; gap: 10px; }
+
+.date-badge {
+  background: rgba(255,255,255,0.18);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.refresh-btn {
+  background: white;
+  color: #2563eb;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  transition: all 0.2s;
+}
+.refresh-btn:hover { background: #eff6ff; }
+.refresh-btn:disabled { background: rgba(255,255,255,0.4); color: rgba(255,255,255,0.7); cursor: not-allowed; }
+
+.legend {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.legend-item {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.filter-btn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  background: white;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.filter-btn:hover { border-color: #2563eb; color: #2563eb; }
+.filter-btn.active { background: #1e3a5f; border-color: #1e3a5f; color: white; }
+
+.summary-strip {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.summary-card {
+  background: white;
+  border-radius: 10px;
+  padding: 12px 20px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+  flex: 1;
+  min-width: 110px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.summary-val { font-size: 26px; font-weight: 800; }
+.summary-lbl { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+.loading-state {
+  background: white;
+  border-radius: 14px;
+  padding: 50px 30px;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+}
+.spinner {
+  width: 48px; height: 48px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+.loading-sub { font-size: 13px; color: #94a3b8; margin-bottom: 20px; }
+.steps { list-style: none; display: inline-block; text-align: left; }
+.steps li { padding: 5px 0 5px 28px; font-size: 13px; color: #94a3b8; position: relative; }
+.steps li::before { content: '⏳'; position: absolute; left: 0; }
+.steps li.active { color: #2563eb; font-weight: 600; }
+.steps li.active::before { content: '🔵'; }
+.steps li.done { color: #16a34a; }
+.steps li.done::before { content: '✅'; }
+
+.player-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(295px, 1fr));
+  gap: 14px;
+}
+
+.player-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-left: 5px solid;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  transition: box-shadow 0.2s, transform 0.15s;
+}
+.player-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.1); transform: translateY(-2px); }
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 11px;
+}
+.player-name { font-size: 16px; font-weight: 800; color: #1e293b; }
+.player-meta { font-size: 12px; color: #94a3b8; margin-top: 3px; }
+.score-big { font-size: 30px; font-weight: 900; line-height: 1; }
+.score-denom { font-size: 10px; color: #cbd5e1; text-align: right; }
+
+.meter {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+  margin-bottom: 11px;
+}
+.meter-block { height: 6px; border-radius: 2px; }
+
+.urgency-badge {
+  display: inline-block;
+  padding: 3px 11px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 10px 8px;
+  margin-bottom: 12px;
+  border: 1px solid #e2e8f0;
+}
+.stat { text-align: center; }
+.stat-val { font-size: 16px; font-weight: 700; color: #1e293b; }
+.stat-lbl { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.3px; }
+
+.card-insight {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.5;
+  margin-bottom: 11px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border-left: 3px solid #e2e8f0;
+}
+
+.ebay-btn {
+  display: block;
+  text-align: center;
+  background: #e63946;
+  color: white;
+  text-decoration: none;
+  padding: 9px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 0.2s;
+}
+.ebay-btn:hover { background: #c1121f; }
+
+.error-state {
+  background: white;
+  border-radius: 14px;
+  padding: 50px 30px;
+  text-align: center;
+  border: 1px solid #fecaca;
+}
+.retry-btn {
+  margin-top: 16px;
+  padding: 10px 24px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 50px;
+  color: #94a3b8;
+  font-size: 15px;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="header">
+    <div>
+      <div class="header-title">⚾ Baseball Prospect Scout</div>
+      <div class="header-sub">Live MLB Stats API · Hot players &amp; rising prospects · Card buy signals</div>
+    </div>
+    <div class="header-right">
+      <span class="date-badge" id="date-badge">—</span>
+      <button class="refresh-btn" id="refresh-btn" onclick="loadData()">↻ Refresh</button>
+    </div>
+  </header>
+
+  <div class="legend">
+    <span class="legend-item" style="background:#fef2f2;color:#dc2626;border-color:#fecaca;">🔥 9–10 BUY NOW</span>
+    <span class="legend-item" style="background:#fff7ed;color:#ea580c;border-color:#fed7aa;">⚡ 7–8 STRONG BUY</span>
+    <span class="legend-item" style="background:#eff6ff;color:#2563eb;border-color:#bfdbfe;">👀 5–6 WATCH</span>
+    <span class="legend-item" style="background:#f8fafc;color:#64748b;border-color:#e2e8f0;">📋 1–4 MONITOR</span>
+  </div>
+
+  <div class="filters">
+    <button class="filter-btn active" onclick="setFilter('all', this)">All Players</button>
+    <button class="filter-btn" onclick="setFilter('MLB', this)">🏟 MLB</button>
+    <button class="filter-btn" onclick="setFilter('AAA', this)">⬆️ AAA</button>
+    <button class="filter-btn" onclick="setFilter('AA', this)">📈 AA</button>
+    <button class="filter-btn" onclick="setFilter('promoted', this)">🚀 Promoted</button>
+  </div>
+
+  <div class="summary-strip" id="summary-strip" style="display:none">
+    <div class="summary-card">
+      <div class="summary-val" id="sum-total" style="color:#1e3a5f">—</div>
+      <div class="summary-lbl">Players Tracked</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-val" id="sum-buy-now" style="color:#dc2626">—</div>
+      <div class="summary-lbl">Buy Now (9–10)</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-val" id="sum-strong" style="color:#ea580c">—</div>
+      <div class="summary-lbl">Strong Buy (7–8)</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-val" id="sum-promoted" style="color:#16a34a">—</div>
+      <div class="summary-lbl">Promoted</div>
+    </div>
+  </div>
+
+  <div class="loading-state" id="loading-state">
+    <div class="spinner"></div>
+    <div class="loading-title">Pulling live stats...</div>
+    <div class="loading-sub">Connecting to MLB Stats API</div>
+    <ul class="steps">
+      <li id="step-mlb">Fetching MLB batting leaders...</li>
+      <li id="step-aaa">Fetching Triple-A leaders...</li>
+      <li id="step-aa">Fetching Double-A leaders...</li>
+      <li id="step-promo">Checking recent promotions...</li>
+      <li id="step-score">Scoring for card value...</li>
+    </ul>
+  </div>
+
+  <div class="player-grid" id="player-grid" style="display:none"></div>
+
+  <div class="error-state" id="error-state" style="display:none">
+    <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+    <div style="font-size:16px;font-weight:600;margin-bottom:6px">Couldn't load player data</div>
+    <div id="error-msg" style="font-size:13px;color:#64748b;margin-bottom:12px"></div>
+    <div id="debug-box" style="display:none;background:#f1f5f9;border-radius:8px;padding:12px;text-align:left;font-size:11px;color:#475569;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;margin-bottom:12px"></div>
+    <button class="retry-btn" onclick="loadData()">Try Again</button>
+  </div>
+
+</div>
+<script>
+'use strict';
+let allPlayers = [];
+let currentFilter = 'all';
+
+/* ── MLB Stats API ────────────────────────────────────────────
+   sportId: 1=MLB  11=Triple-A  12=Double-A  13=High-A  14=A
+   No auth required. Returns JSON directly.
+──────────────────────────────────────────────────────────── */
+const API = 'https://statsapi.mlb.com/api/v1';
+
+async function fetchStats(sportId, limit = 40) {
+  const url = `${API}/stats?stats=season&group=hitting&gameType=R&season=2026` +
+              `&sportId=${sportId}&limit=${limit}&sortStat=battingAverage&order=desc` +
+              `&fields=stats,splits,stat,avg,ops,homeRuns,stolenBases,gamesPlayed,` +
+              `atBats,player,fullName,id,team,name,abbreviation,position,abbreviation`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`API ${r.status} for sportId=${sportId}`);
+  return r.json();
+}
+
+async function fetchTransactions(daysBack = 14) {
+  const end   = new Date();
+  const start = new Date(end - daysBack * 864e5);
+  const fmt   = d => d.toISOString().slice(0,10);
+  const url   = `${API}/transactions?startDate=${fmt(start)}&endDate=${fmt(end)}&sportId=1&limit=200`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const d = await r.json();
+    return d.transactions || [];
+  } catch(e) { return []; }
+}
+
+function parseStats(data, level) {
+  const splits = data?.stats?.[0]?.splits || [];
+  return splits
+    .filter(s => {
+      const avg = parseFloat(s.stat?.avg || '0');
+      return avg >= 0.200 && avg <= 0.500 && (s.stat?.gamesPlayed || 0) >= 10;
+    })
+    .map((s, i) => ({
+      name:  s.player?.fullName || '?',
+      id:    s.player?.id,
+      team:  s.team?.abbreviation || s.team?.name || '?',
+      avg:   parseFloat(s.stat?.avg  || '0'),
+      ops:   s.stat?.ops    || '—',
+      hr:    s.stat?.homeRuns    || 0,
+      sb:    s.stat?.stolenBases || 0,
+      games: s.stat?.gamesPlayed || 0,
+      ab:    s.stat?.atBats      || 0,
+      pos:   s.position?.abbreviation || '',
+      level, rank: i + 1,
+      promoted: false, signals: [], insight: ''
+    }));
+}
+
+/* ── Scoring ────────────────────────────────────────────────── */
+function scorePlayer(p, promotedIds) {
+  let score = 4;
+  const avg = p.avg;
+  const ops = parseFloat(p.ops) || 0;
+
+  if (p.level === 'MLB') {
+    if (avg >= 0.340) score += 4;
+    else if (avg >= 0.320) score += 3;
+    else if (avg >= 0.300) score += 2;
+    else if (avg >= 0.280) score += 1;
+  } else if (p.level === 'AAA') {
+    if (avg >= 0.340) score += 4;
+    else if (avg >= 0.320) score += 3;
+    else if (avg >= 0.300) score += 2;
+    else if (avg >= 0.275) score += 1;
+    score += 0.5;
+  } else { // AA
+    if (avg >= 0.310) score += 5;
+    else if (avg >= 0.290) score += 4;
+    else if (avg >= 0.270) score += 3;
+    else if (avg >= 0.250) score += 2;
+    score += 1;
+  }
+
+  if (ops >= 1.000) score += 2;
+  else if (ops >= 0.900) score += 1.5;
+  else if (ops >= 0.850) score += 0.75;
+
+  if (p.hr >= 12) score += 1.5;
+  else if (p.hr >= 8)  score += 1;
+  else if (p.hr >= 5)  score += 0.5;
+
+  if (p.sb >= 15) score += 1.5;
+  else if (p.sb >= 8)  score += 1;
+  else if (p.sb >= 4)  score += 0.5;
+
+  if (p.rank === 1) score += 0.5;
+  else if (p.rank <= 3) score += 0.3;
+
+  if (p.id && promotedIds.has(p.id)) {
+    score += 2.5;
+    p.promoted = true;
+  }
+
+  return Math.min(10, Math.max(1, Math.round(score)));
+}
+
+function buildSignals(p) {
+  const s = [];
+  if (p.promoted) s.push('Recently promoted 📈');
+  if (p.avg >= 0.340) s.push(`Elite AVG (.${Math.round(p.avg*1000)})`);
+  else if (p.avg >= 0.310) s.push(`Hot bat (.${Math.round(p.avg*1000)})`);
+  const ops = parseFloat(p.ops);
+  if (ops >= 1.000) s.push('OPS over 1.000!');
+  else if (ops >= 0.900) s.push(`Strong OPS (${p.ops})`);
+  if (p.hr >= 10) s.push(`${p.hr} HR power`);
+  if (p.sb >= 10) s.push(`${p.sb} SB speed`);
+  if (p.level === 'AA')  s.push('AA prospect — high card upside');
+  if (p.level === 'AAA' && p.avg >= 0.320) s.push('AAA — MLB call-up candidate');
+  if (p.rank === 1) s.push('#1 in league');
+  else if (p.rank <= 3) s.push('Top 3 in league');
+  return s;
+}
+
+/* ── UI helpers ─────────────────────────────────────────────── */
+function getUrgency(score) {
+  if (score >= 9) return { label:'🔥 BUY NOW',    bg:'#fef2f2', color:'#dc2626', border:'#dc2626', meter:'#dc2626' };
+  if (score >= 7) return { label:'⚡ STRONG BUY', bg:'#fff7ed', color:'#ea580c', border:'#ea580c', meter:'#f97316' };
+  if (score >= 5) return { label:'👀 WATCH',       bg:'#eff6ff', color:'#2563eb', border:'#3b82f6', meter:'#3b82f6' };
+  return               { label:'📋 MONITOR',      bg:'#f8fafc', color:'#64748b', border:'#cbd5e1', meter:'#cbd5e1' };
+}
+
+function levelColor(l) {
+  return l==='MLB'?'#1e3a5f' : l==='AAA'?'#7c3aed' : '#059669';
+}
+
+function ebayUrl(name) {
+  return 'https://www.ebay.com/sch/i.html?_nkw=' +
+    encodeURIComponent(name + ' baseball card rookie') +
+    '&LH_Sold=1&LH_Complete=1&_sop=13';
+}
+
+function fmtAvg(v) {
+  if (!v || isNaN(v)) return '—';
+  return '.' + String(Math.round(v * 1000)).padStart(3,'0');
+}
+
+function renderCard(p) {
+  const u = getUrgency(p.score || 5);
+  const meter = Array.from({length:10}, (_,i) =>
+    `<div class="meter-block" style="background:${i<(p.score||5)?u.meter:'#e2e8f0'}"></div>`
+  ).join('');
+  const signals = (p.signals||[]).slice(0,3).join(' · ');
+
+  return `
+    <div class="player-card" style="border-left-color:${u.border};background:${u.bg};">
+      <div class="card-header">
+        <div>
+          <div class="player-name">${p.name}</div>
+          <div class="player-meta">
+            ${p.team} ·
+            <span style="color:${levelColor(p.level)};font-weight:700">${p.level}</span>
+            ${p.pos ? ' · ' + p.pos : ''}
+            · <span style="color:#94a3b8">#${p.rank}</span>
+            · ${p.games}G
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div class="score-big" style="color:${u.color}">${p.score||'—'}</div>
+          <div class="score-denom">/10</div>
+        </div>
+      </div>
+      <div class="meter">${meter}</div>
+      <span class="urgency-badge" style="background:${u.color}18;color:${u.color}">${u.label}</span>
+      ${p.promoted ? '<span style="display:inline-block;margin-left:6px;background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">📈 PROMOTED</span>' : ''}
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-val">${fmtAvg(p.avg)}</div><div class="stat-lbl">AVG</div></div>
+        <div class="stat"><div class="stat-val">${p.ops||'—'}</div><div class="stat-lbl">OPS</div></div>
+        <div class="stat"><div class="stat-val">${p.hr}</div><div class="stat-lbl">HR</div></div>
+        <div class="stat"><div class="stat-val">${p.sb}</div><div class="stat-lbl">SB</div></div>
+      </div>
+      ${signals ? `<div class="card-insight"><strong>📊</strong> ${signals}</div>` : ''}
+      <a class="ebay-btn" href="${ebayUrl(p.name)}" target="_blank">🔍 Check eBay Sold Prices</a>
+    </div>`;
+}
+
+function renderGrid() {
+  const grid = document.getElementById('player-grid');
+  let list = allPlayers;
+  if (currentFilter === 'promoted') list = allPlayers.filter(p => p.promoted);
+  else if (currentFilter !== 'all')  list = allPlayers.filter(p => p.level === currentFilter);
+  grid.innerHTML = list.length
+    ? list.map(renderCard).join('')
+    : '<div class="empty-state">No players for this filter.</div>';
+}
+
+function setFilter(level, btn) {
+  currentFilter = level;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderGrid();
+}
+
+function showSummary() {
+  document.getElementById('summary-strip').style.display = 'flex';
+  document.getElementById('sum-total').textContent    = allPlayers.length;
+  document.getElementById('sum-buy-now').textContent  = allPlayers.filter(p => p.score >= 9).length;
+  document.getElementById('sum-strong').textContent   = allPlayers.filter(p => p.score >= 7 && p.score < 9).length;
+  document.getElementById('sum-promoted').textContent = allPlayers.filter(p => p.promoted).length;
+}
+
+function stepActive(id) { const e = document.getElementById(id); if(e) e.className='active'; }
+function stepDone(id)   { const e = document.getElementById(id); if(e) e.className='done'; }
+function stepReset(id)  { const e = document.getElementById(id); if(e) e.className=''; }
+
+function showError(msg, debug) {
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('error-state').style.display   = 'block';
+  document.getElementById('error-msg').innerHTML = '<b>' + msg + '</b>';
+  const box = document.getElementById('debug-box');
+  if (debug) { box.style.display='block'; box.textContent=debug; }
+  else        { box.style.display='none'; }
+  document.getElementById('refresh-btn').disabled = false;
+}
+
+/* ── Main loader ─────────────────────────────────────────────── */
+async function loadData() {
+  ['step-mlb','step-aaa','step-aa','step-promo','step-score'].forEach(stepReset);
+  document.getElementById('loading-state').style.display = 'block';
+  document.getElementById('player-grid').style.display   = 'none';
+  document.getElementById('error-state').style.display   = 'none';
+  document.getElementById('summary-strip').style.display = 'none';
+  document.getElementById('refresh-btn').disabled = true;
+
+  try {
+    /* ── Fetch all three levels in parallel ── */
+    stepActive('step-mlb');
+    const [mlbData, aaaData, aaData] = await Promise.allSettled([
+      fetchStats(1,  40),   // MLB
+      fetchStats(11, 40),   // Triple-A
+      fetchStats(12, 40),   // Double-A
+    ]);
+    stepDone('step-mlb');
+
+    stepActive('step-aaa');
+    const mlbPlayers = mlbData.status === 'fulfilled' ? parseStats(mlbData.value, 'MLB') : [];
+    const aaaPlayers = aaaData.status === 'fulfilled' ? parseStats(aaaData.value, 'AAA') : [];
+    stepDone('step-aaa');
+
+    stepActive('step-aa');
+    const aaPlayers  = aaData.status === 'fulfilled'  ? parseStats(aaData.value,  'AA')  : [];
+    stepDone('step-aa');
+
+    if (!mlbPlayers.length && !aaaPlayers.length && !aaPlayers.length) {
+      const errs = [mlbData, aaaData, aaData]
+        .filter(r => r.status === 'rejected')
+        .map(r => r.reason?.message || String(r.reason))
+        .join(' | ');
+      return showError('MLB Stats API returned no data.', errs || 'All levels empty. Possible CORS block.');
+    }
+
+    /* ── Fetch recent promotions/transactions ── */
+    stepActive('step-promo');
+    const transactions = await fetchTransactions(14);
+    // Build set of player IDs who were activated (called up) recently
+    const promotedIds = new Set(
+      transactions
+        .filter(t => t.typeCode === 'OP' || t.typeCode === 'SC' ||
+                     (t.description || '').toLowerCase().includes('select') ||
+                     (t.description || '').toLowerCase().includes('recall') ||
+                     (t.description || '').toLowerCase().includes('call'))
+        .map(t => t.player?.id)
+        .filter(Boolean)
+    );
+    stepDone('step-promo');
+
+    /* ── Score and sort ── */
+    stepActive('step-score');
+    let players = [...mlbPlayers, ...aaaPlayers, ...aaPlayers];
+    players.forEach(p => {
+      p.score   = scorePlayer(p, promotedIds);
+      p.signals = buildSignals(p);
+    });
+    players.sort((a, b) => (b.score || 0) - (a.score || 0));
+    stepDone('step-score');
+
+    allPlayers = players;
+
+    document.getElementById('date-badge').textContent =
+      new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('player-grid').style.display   = 'grid';
+    showSummary();
+    renderGrid();
+
+  } catch(err) {
+    console.error(err);
+    showError(err.message || 'Unknown error', err.stack ? err.stack.slice(0, 500) : '');
+  }
+  document.getElementById('refresh-btn').disabled = false;
+}
+
+// Init
+document.getElementById('date-badge').textContent =
+  new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+loadData();
+</script>
+</body>
+</html>
