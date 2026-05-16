@@ -416,14 +416,14 @@ body {
       </span>
     </a>
     <div class="nav-links">
-      <a class="nav-link active">Hitters</a>
-      <a class="nav-link soon" title="Coming soon">Pitchers <span class="soon-tag">SOON</span></a>
+      <a class="nav-link active" id="nav-hitters" onclick="setView('hitters', this)">Hitters</a>
+      <a class="nav-link" id="nav-pitchers" onclick="setView('pitchers', this)">Pitchers</a>
       <a class="nav-link soon" title="Coming soon">Watchlist <span class="soon-tag">SOON</span></a>
       <a class="nav-link soon" title="Coming soon">Price Movers <span class="soon-tag">SOON</span></a>
     </div>
     <div class="nav-right">
       <span class="date-badge" id="date-badge">—</span>
-      <button class="refresh-btn" id="refresh-btn" onclick="loadData()">↻ Refresh</button>
+      <button class="refresh-btn" id="refresh-btn" onclick="refresh()">↻ Refresh</button>
       <a class="nav-icon-link" href="https://github.com/okra23/baseball-scout" target="_blank" rel="noopener" title="View source on GitHub" aria-label="GitHub">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
       </a>
@@ -474,7 +474,7 @@ body {
     <div class="loading-title">Pulling live stats...</div>
     <div class="loading-sub">Connecting to MLB Stats API</div>
     <ul class="steps">
-      <li id="step-mlb">Fetching MLB batting leaders...</li>
+      <li id="step-mlb">Fetching MLB leaders...</li>
       <li id="step-aaa">Fetching Triple-A leaders...</li>
       <li id="step-aa">Fetching Double-A leaders...</li>
       <li id="step-aplus">Fetching High-A leaders...</li>
@@ -504,7 +504,12 @@ body {
 </footer>
 <script>
 'use strict';
-let allPlayers = [];
+let allPlayers = [];        // currently-visible set (hitters or pitchers)
+let allHitters = [];        // cache
+let allPitchers = [];       // cache
+let pitchersLoaded = false;
+let pitchersLoading = false;
+let currentView = 'hitters';
 let recentPromotions = [];
 let currentFilter = 'all';
 
@@ -587,6 +592,7 @@ function parseStats(data, level) {
       return avg >= 0.200 && avg <= 0.500 && (s.stat?.gamesPlayed || 0) >= 10;
     })
     .map((s, i) => ({
+      kind:  'hitter',
       name:  s.player?.fullName || '?',
       id:    s.player?.id,
       team:  s.team?.abbreviation || s.team?.name || '?',
@@ -784,6 +790,10 @@ function renderCard(p) {
     </div>`;
 }
 
+function renderAnyCard(p) {
+  return p.kind === 'pitcher' ? renderPitcherCard(p) : renderCard(p);
+}
+
 function renderGrid() {
   const grid = document.getElementById('player-grid');
   if (currentFilter === 'promoted') {
@@ -795,7 +805,7 @@ function renderGrid() {
   let list = allPlayers;
   if (currentFilter !== 'all')  list = allPlayers.filter(p => p.level === currentFilter);
   grid.innerHTML = list.length
-    ? list.map(renderCard).join('')
+    ? list.map(renderAnyCard).join('')
     : '<div class="empty-state">No players for this filter.</div>';
 }
 
@@ -863,7 +873,7 @@ function showError(msg, debug) {
 
 /* ── Main loader ─────────────────────────────────────────────── */
 async function loadData() {
-  ['step-mlb','step-aaa','step-aa','step-promo','step-score'].forEach(stepReset);
+  ['step-mlb','step-aaa','step-aa','step-aplus','step-a','step-promo','step-score'].forEach(stepReset);
   document.getElementById('loading-state').style.display = 'block';
   document.getElementById('player-grid').style.display   = 'none';
   document.getElementById('error-state').style.display   = 'none';
@@ -959,20 +969,402 @@ async function loadData() {
     players.sort((a, b) => (b.score || 0) - (a.score || 0));
     stepDone('step-score');
 
-    allPlayers = players;
+    allHitters = players;
+    if (currentView === 'hitters') {
+      allPlayers = allHitters;
+      document.getElementById('date-badge').textContent =
+        new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('player-grid').style.display   = 'grid';
+      showSummary();
+      renderGrid();
+    }
 
-    document.getElementById('date-badge').textContent =
-      new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  } catch(err) {
+    console.error(err);
+    if (currentView === 'hitters') showError(err.message || 'Unknown error', err.stack ? err.stack.slice(0, 500) : '');
+  }
+  document.getElementById('refresh-btn').disabled = false;
+}
+
+/* ── Pitcher pipeline ─────────────────────────────────────────
+   Mirrors the hitter pipeline but uses group=pitching, ERA-based
+   ranking, and a pitcher-specific scoring rubric:
+
+   1. Leaderboard rank (0-3)
+   2. ERA quality (0-3) — ≤2.50 elite, ≤3.00 strong, ≤3.50 solid
+   3. WHIP (0-2) — ≤1.00 = 2, ≤1.15 = 1
+   4. K/9 (0-2) — ≥11 = 2, ≥9.5 = 1
+   5. Card catalyst (0-3) — promoted / call-up watch / bargain window
+─────────────────────────────────────────────────────────────── */
+async function fetchPitcherStats(sportId, limit = 40) {
+  const url = `${API}/stats?stats=season&group=pitching&gameType=R&season=2026` +
+              `&sportId=${sportId}&limit=${limit}&sortStat=earnedRunAverage&order=asc` +
+              `&fields=stats,splits,stat,era,whip,strikeOuts,inningsPitched,wins,losses,` +
+              `gamesPitched,gamesStarted,saves,player,fullName,id,team,name,abbreviation,position,abbreviation`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`API ${r.status} for pitching sportId=${sportId}`);
+  return r.json();
+}
+
+async function fetchRecentPitcherStats(sportId, days = 7, limit = 200) {
+  const end   = new Date();
+  const start = new Date(end - days * 864e5);
+  const fmt   = d => d.toISOString().slice(0,10);
+  const url = `${API}/stats?stats=byDateRange&group=pitching&gameType=R&season=2026` +
+              `&sportId=${sportId}&startDate=${fmt(start)}&endDate=${fmt(end)}` +
+              `&limit=${limit}&sortStat=inningsPitched&order=desc` +
+              `&fields=stats,splits,stat,era,inningsPitched,player,id`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const d = await r.json();
+    return d?.stats?.[0]?.splits || [];
+  } catch (e) { return []; }
+}
+
+// IP comes back as "45.1" (45 full innings + 1/3). Convert to decimal.
+function parseIP(s) {
+  if (s == null) return 0;
+  const parts = String(s).split('.');
+  const w = parseInt(parts[0], 10) || 0;
+  const f = parseInt(parts[1] || '0', 10);
+  return w + f / 3;
+}
+
+function parsePitcherStats(data, level) {
+  const splits = data?.stats?.[0]?.splits || [];
+  const items = splits
+    .map(s => ({
+      raw:   s,
+      ip:    parseIP(s.stat?.inningsPitched),
+      era:   parseFloat(s.stat?.era || '999'),
+      games: s.stat?.gamesPitched || 0
+    }))
+    .filter(x => x.ip >= 15 && x.era < 99 && x.games >= 4)
+    .sort((a, b) => a.era - b.era);
+
+  return items.map((x, i) => {
+    const s = x.raw;
+    const starts = s.stat?.gamesStarted || 0;
+    return {
+      kind:      'pitcher',
+      name:      s.player?.fullName || '?',
+      id:        s.player?.id,
+      team:      s.team?.abbreviation || s.team?.name || '?',
+      era:       x.era,
+      whip:      parseFloat(s.stat?.whip || '0'),
+      so:        s.stat?.strikeOuts || 0,
+      ip:        x.ip,
+      ipDisplay: s.stat?.inningsPitched || '0',
+      wins:      s.stat?.wins || 0,
+      losses:    s.stat?.losses || 0,
+      games:     x.games,
+      starts,
+      saves:     s.stat?.saves || 0,
+      pos:       s.position?.abbreviation || (starts > x.games / 2 ? 'SP' : 'RP'),
+      level,
+      rank:      i + 1,
+      promoted: false, signals: [], insight: ''
+    };
+  }).slice(0, 40);
+}
+
+function k9(p) { return p.ip > 0 ? (p.so * 9 / p.ip) : 0; }
+
+function buildRecentEraMap(recentSplitsArr) {
+  const map = new Map();
+  recentSplitsArr.forEach(splits => {
+    splits.forEach(s => {
+      const id  = s.player?.id;
+      const era = parseFloat(s.stat?.era || '999');
+      const ip  = parseIP(s.stat?.inningsPitched);
+      if (id && ip >= 3 && era < 99) map.set(id, { l7era: era, l7ip: ip });
+    });
+  });
+  return map;
+}
+
+function attachPitcherTrend(p, recentMap) {
+  const r = recentMap.get(p.id);
+  if (!r) { p.trend = null; return; }
+  p.l7era = r.l7era;
+  p.l7ip  = r.l7ip;
+  // Lower ERA = better, so a negative delta (recent < season) is "hot"
+  const delta = r.l7era - p.era;
+  if      (delta <= -0.75) p.trend = 'hot';
+  else if (delta >=  0.75) p.trend = 'cold';
+  else                     p.trend = 'steady';
+  p.trendDelta = delta;
+}
+
+function scorePitcher(p, promotedIds) {
+  const breakdown = [];
+  let raw = 0;
+
+  let rankPts = 0;
+  if      (p.rank === 1)  rankPts = 3;
+  else if (p.rank <= 3)   rankPts = 2;
+  else if (p.rank <= 10)  rankPts = 1;
+  if (rankPts > 0) { raw += rankPts; breakdown.push(`+${rankPts} #${p.rank} in ${p.level}`); }
+
+  let eraPts = 0, eraTier = '';
+  if      (p.era <= 2.50) { eraPts = 3; eraTier = `elite ${p.level} ERA`; }
+  else if (p.era <= 3.00) { eraPts = 2; eraTier = `strong ${p.level} ERA`; }
+  else if (p.era <= 3.50) { eraPts = 1; eraTier = `solid ${p.level} ERA`; }
+  if (eraPts > 0) { raw += eraPts; breakdown.push(`+${eraPts} ${eraTier} (${p.era.toFixed(2)})`); }
+
+  let whipPts = 0;
+  if      (p.whip > 0 && p.whip <= 1.00) whipPts = 2;
+  else if (p.whip > 0 && p.whip <= 1.15) whipPts = 1;
+  if (whipPts > 0) { raw += whipPts; breakdown.push(`+${whipPts} WHIP ${p.whip.toFixed(2)}`); }
+
+  const k = k9(p);
+  let kPts = 0;
+  if      (k >= 11)  kPts = 2;
+  else if (k >= 9.5) kPts = 1;
+  if (kPts > 0) { raw += kPts; breakdown.push(`+${kPts} ${k.toFixed(1)} K/9`); }
+
+  let catPts = 0, catLabel = '';
+  if (p.id && promotedIds.has(p.id)) {
+    catPts = 3; catLabel = 'just promoted';
+    p.promoted = true;
+  } else if (p.level === 'AAA' && p.rank <= 3) {
+    catPts = 2; catLabel = 'AAA call-up watch';
+  } else if (p.level === 'AA' && p.rank <= 3) {
+    catPts = 1; catLabel = 'AA arm rising';
+  } else if ((p.level === 'A+' || p.level === 'A') && p.rank <= 3) {
+    catPts = 1; catLabel = `${p.level} bargain window`;
+  } else if (p.level === 'MLB' && p.rank === 1) {
+    catPts = 1; catLabel = 'MLB ERA leader';
+  }
+  if (catPts > 0) { raw += catPts; breakdown.push(`+${catPts} ${catLabel}`); }
+
+  p.scoreRaw = raw;
+  p.scoreBreakdown = breakdown.length ? breakdown.join(' · ') : 'No qualifying signals';
+  return Math.min(10, Math.max(1, Math.round(raw)));
+}
+
+function buildPitcherSignals(p) {
+  const s = [];
+  if (p.promoted) s.push('Recently promoted 📈');
+  if (p.level === 'AAA' && p.rank <= 3) s.push('MLB call-up imminent');
+  if (p.level === 'AA'  && p.rank <= 3) s.push('AA breakout arm');
+  if (p.level === 'A+') s.push('High-A — long card runway');
+  if (p.level === 'A')  s.push('Low-A — earliest bargain window');
+  if (k9(p) >= 12) s.push('Elite strikeout stuff');
+  return s;
+}
+
+function renderPitcherTrendChip(p) {
+  if (!p.trend) return '';
+  const sign = p.trendDelta >= 0 ? '+' : '';
+  const label = {
+    hot:    `🔥 HEATING · L7 ERA ${p.l7era.toFixed(2)} (${sign}${p.trendDelta.toFixed(2)})`,
+    cold:   `❄️ COOLING · L7 ERA ${p.l7era.toFixed(2)} (${sign}${p.trendDelta.toFixed(2)})`,
+    steady: `➡️ STEADY · L7 ERA ${p.l7era.toFixed(2)}`
+  }[p.trend];
+  return `<span class="trend-chip trend-${p.trend}">${label}</span>`;
+}
+
+function renderPitcherCard(p) {
+  const u = getUrgency(p.score || 5);
+  const meter = Array.from({length:10}, (_,i) =>
+    `<div class="meter-block" style="background:${i<(p.score||5)?u.meter:'#e2e8f0'}"></div>`
+  ).join('');
+  const signals = (p.signals||[]).slice(0,3).join(' · ');
+
+  return `
+    <div class="player-card" style="border-left-color:${u.border};background:${u.bg};">
+      <div class="card-header">
+        <div>
+          <div class="player-name">${p.name}</div>
+          <div class="player-meta">
+            ${p.team} ·
+            <span style="color:${levelColor(p.level)};font-weight:700">${p.level}</span>
+            ${p.pos ? ' · ' + p.pos : ''}
+            · <span style="color:#94a3b8">#${p.rank}</span>
+            · ${p.games}G${p.starts ? '/' + p.starts + 'GS' : ''}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div class="score-big" style="color:${u.color}">${p.score||'—'}</div>
+          <div class="score-denom">/10</div>
+        </div>
+      </div>
+      <div class="meter">${meter}</div>
+      ${p.scoreBreakdown ? `<div class="score-breakdown">${p.scoreBreakdown}</div>` : ''}
+      <span class="urgency-badge" style="background:${u.color}18;color:${u.color}">${u.label}</span>
+      ${renderPitcherTrendChip(p)}
+      ${p.promoted ? '<span style="display:inline-block;margin-left:6px;background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">📈 PROMOTED</span>' : ''}
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-val">${p.era.toFixed(2)}</div><div class="stat-lbl">ERA</div></div>
+        <div class="stat"><div class="stat-val">${p.whip ? p.whip.toFixed(2) : '—'}</div><div class="stat-lbl">WHIP</div></div>
+        <div class="stat"><div class="stat-val">${k9(p).toFixed(1)}</div><div class="stat-lbl">K/9</div></div>
+        <div class="stat"><div class="stat-val">${p.ipDisplay}</div><div class="stat-lbl">IP</div></div>
+      </div>
+      ${signals ? `<div class="card-insight"><strong>📊</strong> ${signals}</div>` : ''}
+      <a class="ebay-btn" href="${ebayUrl(p.name)}" target="_blank">🛒 Find Cards on eBay</a>
+    </div>`;
+}
+
+async function loadPitchers() {
+  pitchersLoading = true;
+  if (currentView === 'pitchers') {
+    ['step-mlb','step-aaa','step-aa','step-aplus','step-a','step-promo','step-score'].forEach(stepReset);
+    document.getElementById('loading-state').style.display = 'block';
+    document.getElementById('player-grid').style.display   = 'none';
+    document.getElementById('error-state').style.display   = 'none';
+    document.getElementById('summary-strip').style.display = 'none';
+    document.getElementById('refresh-btn').disabled = true;
+  }
+
+  try {
+    stepActive('step-mlb');
+    const [mlbData, aaaData, aaData, aplusData, aData] = await Promise.allSettled([
+      fetchPitcherStats(1,  40),
+      fetchPitcherStats(11, 40),
+      fetchPitcherStats(12, 40),
+      fetchPitcherStats(13, 40),
+      fetchPitcherStats(14, 40),
+    ]);
+    stepDone('step-mlb');
+
+    stepActive('step-aaa');
+    const mlbP   = mlbData.status   === 'fulfilled' ? parsePitcherStats(mlbData.value,   'MLB') : [];
+    const aaaP   = aaaData.status   === 'fulfilled' ? parsePitcherStats(aaaData.value,   'AAA') : [];
+    stepDone('step-aaa');
+
+    stepActive('step-aa');
+    const aaP    = aaData.status    === 'fulfilled' ? parsePitcherStats(aaData.value,    'AA')  : [];
+    stepDone('step-aa');
+
+    stepActive('step-aplus');
+    const aplusP = aplusData.status === 'fulfilled' ? parsePitcherStats(aplusData.value, 'A+')  : [];
+    stepDone('step-aplus');
+
+    stepActive('step-a');
+    const aP     = aData.status     === 'fulfilled' ? parsePitcherStats(aData.value,     'A')   : [];
+    stepDone('step-a');
+
+    const recentSettled = await Promise.allSettled([
+      fetchRecentPitcherStats(1),
+      fetchRecentPitcherStats(11),
+      fetchRecentPitcherStats(12),
+      fetchRecentPitcherStats(13),
+      fetchRecentPitcherStats(14),
+    ]);
+    const recentMap = buildRecentEraMap(
+      recentSettled.map(r => r.status === 'fulfilled' ? r.value : [])
+    );
+
+    if (!mlbP.length && !aaaP.length && !aaP.length && !aplusP.length && !aP.length) {
+      const errs = [mlbData, aaaData, aaData, aplusData, aData]
+        .filter(r => r.status === 'rejected')
+        .map(r => r.reason?.message || String(r.reason))
+        .join(' | ');
+      if (currentView === 'pitchers') showError('MLB Stats API returned no pitching data.', errs || 'All levels empty.');
+      pitchersLoading = false;
+      document.getElementById('refresh-btn').disabled = false;
+      return;
+    }
+
+    stepActive('step-promo');
+    // Reuse the promotions list if it's already been fetched in hitter load.
+    if (!recentPromotions.length) {
+      const transactions = await fetchTransactions(14);
+      recentPromotions = transactions
+        .filter(t => t.typeCode === 'CU' || t.typeCode === 'SE')
+        .map(t => {
+          const desc = t.description || '';
+          const posMatch = desc.match(/\b(RHP|LHP|1B|2B|3B|SS|LF|CF|RF|DH|OF|IF|C|P)\b/);
+          const fromMatch = desc.match(/from ([^.]+?)\.?$/);
+          return {
+            id: t.person?.id,
+            name: t.person?.fullName || '?',
+            team: t.toTeam?.name || '?',
+            date: t.date || t.effectiveDate || '',
+            desc,
+            pos: posMatch ? posMatch[1] : '',
+            fromTeam: fromMatch ? fromMatch[1].trim() : ''
+          };
+        })
+        .filter(p => p.id)
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    }
+    const promotedIds = new Set(recentPromotions.map(p => p.id));
+    stepDone('step-promo');
+
+    stepActive('step-score');
+    let pitchers = [...mlbP, ...aaaP, ...aaP, ...aplusP, ...aP];
+    pitchers.forEach(p => {
+      attachPitcherTrend(p, recentMap);
+      p.score   = scorePitcher(p, promotedIds);
+      p.signals = buildPitcherSignals(p);
+    });
+    pitchers.sort((a, b) => (b.score || 0) - (a.score || 0));
+    stepDone('step-score');
+
+    allPitchers    = pitchers;
+    pitchersLoaded = true;
+
+    if (currentView === 'pitchers') {
+      allPlayers = allPitchers;
+      document.getElementById('date-badge').textContent =
+        new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('player-grid').style.display   = 'grid';
+      showSummary();
+      renderGrid();
+    }
+  } catch (err) {
+    console.error(err);
+    if (currentView === 'pitchers') showError(err.message || 'Unknown error', err.stack ? err.stack.slice(0, 500) : '');
+  }
+  pitchersLoading = false;
+  document.getElementById('refresh-btn').disabled = false;
+}
+
+function setView(view, el) {
+  if (view === currentView) return;
+  currentView = view;
+  document.querySelectorAll('.nav-link').forEach(n => {
+    if (!n.classList.contains('soon')) n.classList.remove('active');
+  });
+  if (el) el.classList.add('active');
+
+  // Reset to "All" when switching views
+  currentFilter = 'all';
+  document.querySelectorAll('.filter-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+
+  document.getElementById('error-state').style.display = 'none';
+
+  if (view === 'pitchers') {
+    if (pitchersLoaded) {
+      allPlayers = allPitchers;
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('player-grid').style.display   = 'grid';
+      showSummary();
+      renderGrid();
+    } else if (!pitchersLoading) {
+      loadPitchers();
+    }
+  } else {
+    allPlayers = allHitters;
     document.getElementById('loading-state').style.display = 'none';
     document.getElementById('player-grid').style.display   = 'grid';
     showSummary();
     renderGrid();
-
-  } catch(err) {
-    console.error(err);
-    showError(err.message || 'Unknown error', err.stack ? err.stack.slice(0, 500) : '');
   }
-  document.getElementById('refresh-btn').disabled = false;
+}
+
+function refresh() {
+  if (currentView === 'pitchers') {
+    pitchersLoaded = false;
+    loadPitchers();
+  } else {
+    loadData();
+  }
 }
 
 // Init
