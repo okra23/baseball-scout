@@ -511,6 +511,7 @@ let pitchersLoaded = false;
 let pitchersLoading = false;
 let currentView = 'hitters';
 let recentPromotions = [];
+let promotionsEnriched = false;
 let currentFilter = 'all';
 
 /* ── MLB Stats API ────────────────────────────────────────────
@@ -809,6 +810,89 @@ function renderGrid() {
     : '<div class="empty-state">No players for this filter.</div>';
 }
 
+/* Per-player season line (used to enrich promoted cards with the
+   minor-league stats that earned the call-up). Returns the split with
+   the most games for each group, so we pick the player's primary stint
+   for the year rather than blending. */
+async function fetchPlayerSeasonLine(personId) {
+  const url = `${API}/people/${personId}/stats?stats=season&group=hitting,pitching&season=2026`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const d = await r.json();
+    const out = { hitting: null, pitching: null };
+    for (const group of (d.stats || [])) {
+      const splits = group.splits || [];
+      if (!splits.length) continue;
+      const best = splits.reduce((a, b) => {
+        const ag = (a?.stat?.gamesPlayed || a?.stat?.gamesPitched || 0);
+        const bg = (b?.stat?.gamesPlayed || b?.stat?.gamesPitched || 0);
+        return bg > ag ? b : a;
+      });
+      const name = group.group?.displayName;
+      if (name === 'hitting')  out.hitting  = best;
+      if (name === 'pitching') out.pitching = best;
+    }
+    return out;
+  } catch (e) { return null; }
+}
+
+async function enrichPromotions() {
+  if (promotionsEnriched || !recentPromotions.length) return;
+  promotionsEnriched = true;
+  await Promise.allSettled(recentPromotions.map(async p => {
+    const line = await fetchPlayerSeasonLine(p.id);
+    if (!line) return;
+    p.hittingLine  = line.hitting;
+    p.pitchingLine = line.pitching;
+  }));
+  if (currentFilter === 'promoted') renderGrid();
+}
+
+function renderPromoStats(p) {
+  // Pitcher card path: prefer pitching line if it has meaningful innings
+  const pit = p.pitchingLine;
+  const pitIp = pit ? parseIP(pit.stat?.inningsPitched) : 0;
+  if (pit && pitIp >= 5) {
+    const era  = parseFloat(pit.stat?.era  || '0');
+    const whip = parseFloat(pit.stat?.whip || '0');
+    const so   = pit.stat?.strikeOuts || 0;
+    const k    = pitIp > 0 ? (so * 9 / pitIp) : 0;
+    const ip   = pit.stat?.inningsPitched || '0';
+    const team = pit.team?.abbreviation || pit.team?.name || '';
+    return `
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-val">${era.toFixed(2)}</div><div class="stat-lbl">ERA</div></div>
+        <div class="stat"><div class="stat-val">${whip ? whip.toFixed(2) : '—'}</div><div class="stat-lbl">WHIP</div></div>
+        <div class="stat"><div class="stat-val">${k.toFixed(1)}</div><div class="stat-lbl">K/9</div></div>
+        <div class="stat"><div class="stat-val">${ip}</div><div class="stat-lbl">IP</div></div>
+      </div>
+      ${team ? `<div style="font-size:11px;color:#94a3b8;margin-bottom:10px">Pre-call-up line · ${team}</div>` : ''}`;
+  }
+
+  const hit = p.hittingLine;
+  if (hit && (hit.stat?.atBats || 0) >= 10) {
+    const avg  = parseFloat(hit.stat?.avg || '0');
+    const ops  = hit.stat?.ops || '—';
+    const hr   = hit.stat?.homeRuns    || 0;
+    const sb   = hit.stat?.stolenBases || 0;
+    const team = hit.team?.abbreviation || hit.team?.name || '';
+    return `
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-val">${fmtAvg(avg)}</div><div class="stat-lbl">AVG</div></div>
+        <div class="stat"><div class="stat-val">${ops}</div><div class="stat-lbl">OPS</div></div>
+        <div class="stat"><div class="stat-val">${hr}</div><div class="stat-lbl">HR</div></div>
+        <div class="stat"><div class="stat-val">${sb}</div><div class="stat-lbl">SB</div></div>
+      </div>
+      ${team ? `<div style="font-size:11px;color:#94a3b8;margin-bottom:10px">Pre-call-up line · ${team}</div>` : ''}`;
+  }
+
+  // Enrichment not yet loaded, or no qualifying line returned
+  return promotionsEnriched
+    ? ''
+    : `<div style="font-size:11px;color:#94a3b8;margin-bottom:10px;font-style:italic">Loading stats…</div>`;
+}
+
 function renderPromotionCard(p) {
   const score = 8;
   const u = getUrgency(score);
@@ -837,6 +921,7 @@ function renderPromotionCard(p) {
       <div class="meter">${meter}</div>
       <span class="urgency-badge" style="background:${u.color}18;color:${u.color}">${u.label}</span>
       ${dateLabel ? `<span style="display:inline-block;margin-left:6px;background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">📈 ${dateLabel}</span>` : ''}
+      ${renderPromoStats(p)}
       <div class="card-insight"><strong>🚀</strong> ${p.desc}</div>
       <a class="ebay-btn" href="${ebayUrl(p.name)}" target="_blank">🛒 Find Cards on eBay</a>
     </div>`;
@@ -847,6 +932,7 @@ function setFilter(level, btn) {
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   renderGrid();
+  if (level === 'promoted' && !promotionsEnriched) enrichPromotions();
 }
 
 function showSummary() {
@@ -955,6 +1041,7 @@ async function loadData() {
       })
       .filter(p => p.id);
     recentPromotions = promos.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    promotionsEnriched = false;
     const promotedIds = new Set(promos.map(p => p.id));
     stepDone('step-promo');
 
@@ -979,6 +1066,7 @@ async function loadData() {
       document.getElementById('player-grid').style.display   = 'grid';
       showSummary();
       renderGrid();
+      if (currentFilter === 'promoted' && !promotionsEnriched) enrichPromotions();
     }
 
   } catch(err) {
