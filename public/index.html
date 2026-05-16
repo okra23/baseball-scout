@@ -966,6 +966,7 @@ async function loadData() {
       p.score   = scorePlayer(p, promotedIds);
       p.signals = buildSignals(p);
     });
+    players = players.filter(p => (p.score || 0) >= 4);
     players.sort((a, b) => (b.score || 0) - (a.score || 0));
     stepDone('step-score');
 
@@ -1302,6 +1303,7 @@ async function loadPitchers() {
       p.score   = scorePitcher(p, promotedIds);
       p.signals = buildPitcherSignals(p);
     });
+    pitchers = pitchers.filter(p => (p.score || 0) >= 4);
     pitchers.sort((a, b) => (b.score || 0) - (a.score || 0));
     stepDone('step-score');
 
