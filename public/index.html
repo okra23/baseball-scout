@@ -478,9 +478,10 @@ function levelColor(l) {
 }
 
 function ebayUrl(name) {
+  // Active buy listings, sorted cheapest first (price + shipping ascending)
   return 'https://www.ebay.com/sch/i.html?_nkw=' +
     encodeURIComponent(name + ' baseball card rookie') +
-    '&LH_Sold=1&LH_Complete=1&_sop=13';
+    '&_sop=15';
 }
 
 function fmtAvg(v) {
@@ -523,7 +524,7 @@ function renderCard(p) {
         <div class="stat"><div class="stat-val">${p.sb}</div><div class="stat-lbl">SB</div></div>
       </div>
       ${signals ? `<div class="card-insight"><strong>📊</strong> ${signals}</div>` : ''}
-      <a class="ebay-btn" href="${ebayUrl(p.name)}" target="_blank">🔍 Check eBay Sold Prices</a>
+      <a class="ebay-btn" href="${ebayUrl(p.name)}" target="_blank">🛒 Find Cards on eBay</a>
     </div>`;
 }
 
@@ -571,7 +572,7 @@ function renderPromotionCard(p) {
       <span class="urgency-badge" style="background:${u.color}18;color:${u.color}">${u.label}</span>
       ${dateLabel ? `<span style="display:inline-block;margin-left:6px;background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">📈 ${dateLabel}</span>` : ''}
       <div class="card-insight"><strong>🚀</strong> ${p.desc}</div>
-      <a class="ebay-btn" href="${ebayUrl(p.name)}" target="_blank">🔍 Check eBay Sold Prices</a>
+      <a class="ebay-btn" href="${ebayUrl(p.name)}" target="_blank">🛒 Find Cards on eBay</a>
     </div>`;
 }
 
