@@ -206,6 +206,18 @@ body {
   border-left: 3px solid #e2e8f0;
 }
 
+.score-breakdown {
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.5;
+  margin-bottom: 11px;
+  padding: 7px 10px;
+  background: #ffffff;
+  border-radius: 6px;
+  border: 1px dashed #cbd5e1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 .ebay-btn {
   display: block;
   text-align: center;
@@ -381,82 +393,98 @@ function parseStats(data, level) {
     }));
 }
 
-/* ── Scoring ────────────────────────────────────────────────── */
+/* ── Scoring ──────────────────────────────────────────────────
+   Five components, max 13 points, capped at 10. A 10 requires
+   firing across multiple categories — truly elite + a catalyst.
+
+   1. Leaderboard rank (0-3) — best in their level cohort
+   2. AVG quality (0-3) — level-aware absolute thresholds
+   3. OPS (0-2)
+   4. Power + Speed (0-2) — 1 each for 12+ HR / 12+ SB
+   5. Card catalyst (0-3) — promoted, MLB leader, AAA call-up watch, etc.
+─────────────────────────────────────────────────────────────── */
 function scorePlayer(p, promotedIds) {
-  let score = 4;
+  const breakdown = [];
+  let raw = 0;
+
+  // 1. Rank within level
+  let rankPts = 0;
+  if      (p.rank === 1)  rankPts = 3;
+  else if (p.rank <= 3)   rankPts = 2;
+  else if (p.rank <= 10)  rankPts = 1;
+  if (rankPts > 0) {
+    raw += rankPts;
+    breakdown.push(`+${rankPts} #${p.rank} in ${p.level}`);
+  }
+
+  // 2. AVG quality, level-aware
   const avg = p.avg;
-  const ops = parseFloat(p.ops) || 0;
-
+  let avgPts = 0;
+  let avgTier = '';
   if (p.level === 'MLB') {
-    if (avg >= 0.340) score += 4;
-    else if (avg >= 0.320) score += 3;
-    else if (avg >= 0.300) score += 2;
-    else if (avg >= 0.280) score += 1;
+    if      (avg >= 0.330) { avgPts = 3; avgTier = 'elite MLB AVG'; }
+    else if (avg >= 0.310) { avgPts = 2; avgTier = 'strong MLB AVG'; }
+    else if (avg >= 0.290) { avgPts = 1; avgTier = 'solid MLB AVG'; }
   } else if (p.level === 'AAA') {
-    if (avg >= 0.340) score += 4;
-    else if (avg >= 0.320) score += 3;
-    else if (avg >= 0.300) score += 2;
-    else if (avg >= 0.275) score += 1;
-    score += 0.5;
-  } else if (p.level === 'AA') {
-    if (avg >= 0.310) score += 5;
-    else if (avg >= 0.290) score += 4;
-    else if (avg >= 0.270) score += 3;
-    else if (avg >= 0.250) score += 2;
-    score += 1;
-  } else if (p.level === 'A+') { // High-A
-    if (avg >= 0.320) score += 4;
-    else if (avg >= 0.300) score += 3;
-    else if (avg >= 0.280) score += 2;
-    else if (avg >= 0.260) score += 1;
-    score += 1.25;
-  } else { // A (Low-A) — earliest pro level, longest card runway
-    if (avg >= 0.320) score += 4;
-    else if (avg >= 0.300) score += 3;
-    else if (avg >= 0.280) score += 2;
-    else if (avg >= 0.260) score += 1;
-    score += 1.5;
+    if      (avg >= 0.340) { avgPts = 3; avgTier = 'elite AAA AVG'; }
+    else if (avg >= 0.320) { avgPts = 2; avgTier = 'strong AAA AVG'; }
+    else if (avg >= 0.300) { avgPts = 1; avgTier = 'solid AAA AVG'; }
+  } else { // AA, A+, A
+    if      (avg >= 0.330) { avgPts = 3; avgTier = `elite ${p.level} AVG`; }
+    else if (avg >= 0.310) { avgPts = 2; avgTier = `strong ${p.level} AVG`; }
+    else if (avg >= 0.290) { avgPts = 1; avgTier = `solid ${p.level} AVG`; }
+  }
+  if (avgPts > 0) {
+    raw += avgPts;
+    breakdown.push(`+${avgPts} ${avgTier} (.${Math.round(avg*1000)})`);
   }
 
-  if (ops >= 1.000) score += 2;
-  else if (ops >= 0.900) score += 1.5;
-  else if (ops >= 0.850) score += 0.75;
+  // 3. OPS
+  const ops = parseFloat(p.ops) || 0;
+  let opsPts = 0;
+  if      (ops >= 1.000) opsPts = 2;
+  else if (ops >= 0.900) opsPts = 1;
+  if (opsPts > 0) {
+    raw += opsPts;
+    breakdown.push(`+${opsPts} OPS ${p.ops}`);
+  }
 
-  if (p.hr >= 12) score += 1.5;
-  else if (p.hr >= 8)  score += 1;
-  else if (p.hr >= 5)  score += 0.5;
+  // 4. Power + Speed
+  if (p.hr >= 12) { raw += 1; breakdown.push(`+1 ${p.hr} HR power`); }
+  if (p.sb >= 12) { raw += 1; breakdown.push(`+1 ${p.sb} SB speed`); }
 
-  if (p.sb >= 15) score += 1.5;
-  else if (p.sb >= 8)  score += 1;
-  else if (p.sb >= 4)  score += 0.5;
-
-  if (p.rank === 1) score += 0.5;
-  else if (p.rank <= 3) score += 0.3;
-
+  // 5. Card catalyst
+  let catPts = 0;
+  let catLabel = '';
   if (p.id && promotedIds.has(p.id)) {
-    score += 2.5;
+    catPts = 3; catLabel = 'just promoted';
     p.promoted = true;
+  } else if (p.level === 'AAA' && p.rank <= 3) {
+    catPts = 2; catLabel = 'AAA call-up watch';
+  } else if (p.level === 'AA' && p.rank <= 3) {
+    catPts = 1; catLabel = 'AA prospect rising';
+  } else if ((p.level === 'A+' || p.level === 'A') && p.rank <= 3) {
+    catPts = 1; catLabel = `${p.level} bargain window`;
+  } else if (p.level === 'MLB' && p.rank === 1) {
+    catPts = 1; catLabel = 'MLB league leader';
+  }
+  if (catPts > 0) {
+    raw += catPts;
+    breakdown.push(`+${catPts} ${catLabel}`);
   }
 
-  return Math.min(10, Math.max(1, Math.round(score)));
+  p.scoreRaw = raw;
+  p.scoreBreakdown = breakdown.length ? breakdown.join(' · ') : 'No qualifying signals';
+  return Math.min(10, Math.max(1, Math.round(raw)));
 }
 
 function buildSignals(p) {
   const s = [];
   if (p.promoted) s.push('Recently promoted 📈');
-  if (p.avg >= 0.340) s.push(`Elite AVG (.${Math.round(p.avg*1000)})`);
-  else if (p.avg >= 0.310) s.push(`Hot bat (.${Math.round(p.avg*1000)})`);
-  const ops = parseFloat(p.ops);
-  if (ops >= 1.000) s.push('OPS over 1.000!');
-  else if (ops >= 0.900) s.push(`Strong OPS (${p.ops})`);
-  if (p.hr >= 10) s.push(`${p.hr} HR power`);
-  if (p.sb >= 10) s.push(`${p.sb} SB speed`);
-  if (p.level === 'AA')  s.push('AA prospect — high card upside');
-  if (p.level === 'A+')  s.push('High-A prospect — long card runway');
-  if (p.level === 'A')   s.push('Low-A prospect — earliest bargain window');
-  if (p.level === 'AAA' && p.avg >= 0.320) s.push('AAA — MLB call-up candidate');
-  if (p.rank === 1) s.push('#1 in league');
-  else if (p.rank <= 3) s.push('Top 3 in league');
+  if (p.level === 'AAA' && p.rank <= 3) s.push('MLB call-up imminent');
+  if (p.level === 'AA'  && p.rank <= 3) s.push('AA breakout candidate');
+  if (p.level === 'A+') s.push('High-A — long card runway');
+  if (p.level === 'A')  s.push('Low-A — earliest bargain window');
   return s;
 }
 
@@ -515,6 +543,7 @@ function renderCard(p) {
         </div>
       </div>
       <div class="meter">${meter}</div>
+      ${p.scoreBreakdown ? `<div class="score-breakdown">${p.scoreBreakdown}</div>` : ''}
       <span class="urgency-badge" style="background:${u.color}18;color:${u.color}">${u.label}</span>
       ${p.promoted ? '<span style="display:inline-block;margin-left:6px;background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">📈 PROMOTED</span>' : ''}
       <div class="stats-grid">
