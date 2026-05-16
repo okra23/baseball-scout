@@ -273,6 +273,8 @@ body {
     <button class="filter-btn" onclick="setFilter('MLB', this)">🏟 MLB</button>
     <button class="filter-btn" onclick="setFilter('AAA', this)">⬆️ AAA</button>
     <button class="filter-btn" onclick="setFilter('AA', this)">📈 AA</button>
+    <button class="filter-btn" onclick="setFilter('A+', this)">🌱 High-A</button>
+    <button class="filter-btn" onclick="setFilter('A', this)">🌿 Low-A</button>
     <button class="filter-btn" onclick="setFilter('promoted', this)">🚀 Promoted</button>
   </div>
 
@@ -303,6 +305,8 @@ body {
       <li id="step-mlb">Fetching MLB batting leaders...</li>
       <li id="step-aaa">Fetching Triple-A leaders...</li>
       <li id="step-aa">Fetching Double-A leaders...</li>
+      <li id="step-aplus">Fetching High-A leaders...</li>
+      <li id="step-a">Fetching Low-A leaders...</li>
       <li id="step-promo">Checking recent promotions...</li>
       <li id="step-score">Scoring for card value...</li>
     </ul>
@@ -394,12 +398,24 @@ function scorePlayer(p, promotedIds) {
     else if (avg >= 0.300) score += 2;
     else if (avg >= 0.275) score += 1;
     score += 0.5;
-  } else { // AA
+  } else if (p.level === 'AA') {
     if (avg >= 0.310) score += 5;
     else if (avg >= 0.290) score += 4;
     else if (avg >= 0.270) score += 3;
     else if (avg >= 0.250) score += 2;
     score += 1;
+  } else if (p.level === 'A+') { // High-A
+    if (avg >= 0.320) score += 4;
+    else if (avg >= 0.300) score += 3;
+    else if (avg >= 0.280) score += 2;
+    else if (avg >= 0.260) score += 1;
+    score += 1.25;
+  } else { // A (Low-A) — earliest pro level, longest card runway
+    if (avg >= 0.320) score += 4;
+    else if (avg >= 0.300) score += 3;
+    else if (avg >= 0.280) score += 2;
+    else if (avg >= 0.260) score += 1;
+    score += 1.5;
   }
 
   if (ops >= 1.000) score += 2;
@@ -436,6 +452,8 @@ function buildSignals(p) {
   if (p.hr >= 10) s.push(`${p.hr} HR power`);
   if (p.sb >= 10) s.push(`${p.sb} SB speed`);
   if (p.level === 'AA')  s.push('AA prospect — high card upside');
+  if (p.level === 'A+')  s.push('High-A prospect — long card runway');
+  if (p.level === 'A')   s.push('Low-A prospect — earliest bargain window');
   if (p.level === 'AAA' && p.avg >= 0.320) s.push('AAA — MLB call-up candidate');
   if (p.rank === 1) s.push('#1 in league');
   else if (p.rank <= 3) s.push('Top 3 in league');
@@ -451,7 +469,12 @@ function getUrgency(score) {
 }
 
 function levelColor(l) {
-  return l==='MLB'?'#1e3a5f' : l==='AAA'?'#7c3aed' : '#059669';
+  if (l === 'MLB') return '#1e3a5f';
+  if (l === 'AAA') return '#7c3aed';
+  if (l === 'AA')  return '#059669';
+  if (l === 'A+')  return '#db2777';
+  if (l === 'A')   return '#d97706';
+  return '#64748b';
 }
 
 function ebayUrl(name) {
@@ -591,12 +614,14 @@ async function loadData() {
   document.getElementById('refresh-btn').disabled = true;
 
   try {
-    /* ── Fetch all three levels in parallel ── */
+    /* ── Fetch all five levels in parallel ── */
     stepActive('step-mlb');
-    const [mlbData, aaaData, aaData] = await Promise.allSettled([
+    const [mlbData, aaaData, aaData, aplusData, aData] = await Promise.allSettled([
       fetchStats(1,  40),   // MLB
       fetchStats(11, 40),   // Triple-A
       fetchStats(12, 40),   // Double-A
+      fetchStats(13, 40),   // High-A
+      fetchStats(14, 40),   // Low-A
     ]);
     stepDone('step-mlb');
 
@@ -609,8 +634,16 @@ async function loadData() {
     const aaPlayers  = aaData.status === 'fulfilled'  ? parseStats(aaData.value,  'AA')  : [];
     stepDone('step-aa');
 
-    if (!mlbPlayers.length && !aaaPlayers.length && !aaPlayers.length) {
-      const errs = [mlbData, aaaData, aaData]
+    stepActive('step-aplus');
+    const aplusPlayers = aplusData.status === 'fulfilled' ? parseStats(aplusData.value, 'A+') : [];
+    stepDone('step-aplus');
+
+    stepActive('step-a');
+    const aPlayers     = aData.status     === 'fulfilled' ? parseStats(aData.value,     'A')  : [];
+    stepDone('step-a');
+
+    if (!mlbPlayers.length && !aaaPlayers.length && !aaPlayers.length && !aplusPlayers.length && !aPlayers.length) {
+      const errs = [mlbData, aaaData, aaData, aplusData, aData]
         .filter(r => r.status === 'rejected')
         .map(r => r.reason?.message || String(r.reason))
         .join(' | ');
@@ -648,7 +681,7 @@ async function loadData() {
 
     /* ── Score and sort ── */
     stepActive('step-score');
-    let players = [...mlbPlayers, ...aaaPlayers, ...aaPlayers];
+    let players = [...mlbPlayers, ...aaaPlayers, ...aaPlayers, ...aplusPlayers, ...aPlayers];
     players.forEach(p => {
       p.score   = scorePlayer(p, promotedIds);
       p.signals = buildSignals(p);
