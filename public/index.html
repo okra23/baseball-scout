@@ -322,6 +322,7 @@ body {
 <script>
 'use strict';
 let allPlayers = [];
+let recentPromotions = [];
 let currentFilter = 'all';
 
 /* ── MLB Stats API ────────────────────────────────────────────
@@ -505,12 +506,50 @@ function renderCard(p) {
 
 function renderGrid() {
   const grid = document.getElementById('player-grid');
+  if (currentFilter === 'promoted') {
+    grid.innerHTML = recentPromotions.length
+      ? recentPromotions.map(renderPromotionCard).join('')
+      : '<div class="empty-state">No recent call-ups in the last 14 days.</div>';
+    return;
+  }
   let list = allPlayers;
-  if (currentFilter === 'promoted') list = allPlayers.filter(p => p.promoted);
-  else if (currentFilter !== 'all')  list = allPlayers.filter(p => p.level === currentFilter);
+  if (currentFilter !== 'all')  list = allPlayers.filter(p => p.level === currentFilter);
   grid.innerHTML = list.length
     ? list.map(renderCard).join('')
     : '<div class="empty-state">No players for this filter.</div>';
+}
+
+function renderPromotionCard(p) {
+  const score = 8;
+  const u = getUrgency(score);
+  const meter = Array.from({length:10}, (_,i) =>
+    `<div class="meter-block" style="background:${i<score?u.meter:'#e2e8f0'}"></div>`
+  ).join('');
+  const dateLabel = p.date
+    ? new Date(p.date + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric'})
+    : '';
+  return `
+    <div class="player-card" style="border-left-color:${u.border};background:${u.bg};">
+      <div class="card-header">
+        <div>
+          <div class="player-name">${p.name}</div>
+          <div class="player-meta">
+            ${p.team}
+            ${p.pos ? ' · ' + p.pos : ''}
+            · <span style="color:#16a34a;font-weight:700">CALLED UP</span>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div class="score-big" style="color:${u.color}">${score}</div>
+          <div class="score-denom">/10</div>
+        </div>
+      </div>
+      <div class="meter">${meter}</div>
+      <span class="urgency-badge" style="background:${u.color}18;color:${u.color}">${u.label}</span>
+      ${dateLabel ? `<span style="display:inline-block;margin-left:6px;background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">📈 ${dateLabel}</span>` : ''}
+      <div class="card-insight"><strong>🚀</strong> ${p.desc}</div>
+      <a class="ebay-btn" href="${ebayUrl(p.name)}" target="_blank">🔍 Check eBay Sold Prices</a>
+    </div>`;
 }
 
 function setFilter(level, btn) {
@@ -525,7 +564,7 @@ function showSummary() {
   document.getElementById('sum-total').textContent    = allPlayers.length;
   document.getElementById('sum-buy-now').textContent  = allPlayers.filter(p => p.score >= 9).length;
   document.getElementById('sum-strong').textContent   = allPlayers.filter(p => p.score >= 7 && p.score < 9).length;
-  document.getElementById('sum-promoted').textContent = allPlayers.filter(p => p.promoted).length;
+  document.getElementById('sum-promoted').textContent = recentPromotions.length;
 }
 
 function stepActive(id) { const e = document.getElementById(id); if(e) e.className='active'; }
@@ -578,19 +617,33 @@ async function loadData() {
       return showError('MLB Stats API returned no data.', errs || 'All levels empty. Possible CORS block.');
     }
 
-    /* ── Fetch recent promotions/transactions ── */
+    /* ── Fetch recent promotions/transactions ──
+       CU = Recalled (call-up from minors)
+       SE = Selected (contract selected, often from minors to MLB)
+       These are the actual promotion typeCodes; SC is "Status Change"
+       which is mostly IL moves and is too noisy to use.
+    */
     stepActive('step-promo');
     const transactions = await fetchTransactions(14);
-    // Build set of player IDs who were activated (called up) recently
-    const promotedIds = new Set(
-      transactions
-        .filter(t => t.typeCode === 'OP' || t.typeCode === 'SC' ||
-                     (t.description || '').toLowerCase().includes('select') ||
-                     (t.description || '').toLowerCase().includes('recall') ||
-                     (t.description || '').toLowerCase().includes('call'))
-        .map(t => t.player?.id)
-        .filter(Boolean)
-    );
+    const promos = transactions
+      .filter(t => t.typeCode === 'CU' || t.typeCode === 'SE')
+      .map(t => {
+        const desc = t.description || '';
+        const posMatch = desc.match(/\b(RHP|LHP|1B|2B|3B|SS|LF|CF|RF|DH|OF|IF|C|P)\b/);
+        const fromMatch = desc.match(/from ([^.]+?)\.?$/);
+        return {
+          id: t.person?.id,
+          name: t.person?.fullName || '?',
+          team: t.toTeam?.name || '?',
+          date: t.date || t.effectiveDate || '',
+          desc,
+          pos: posMatch ? posMatch[1] : '',
+          fromTeam: fromMatch ? fromMatch[1].trim() : ''
+        };
+      })
+      .filter(p => p.id);
+    recentPromotions = promos.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const promotedIds = new Set(promos.map(p => p.id));
     stepDone('step-promo');
 
     /* ── Score and sort ── */
