@@ -620,8 +620,9 @@ body {
     <div>Built by <a href="https://github.com/okra23" target="_blank" rel="noopener">@okra23</a> · <a href="https://github.com/okra23/baseball-scout" target="_blank" rel="noopener">Source</a></div>
   </div>
 </footer>
-<!-- Watchlist sync (optional). Fill these in to sync your watchlist across
-     devices; leave them blank and the watchlist stays local to this browser.
+<!-- Optional Supabase sync, off unless these are filled in. The Dropbox file
+     sync in the Watchlist tab needs none of this; it is here as the route that
+     also reaches phones. The SDK is only downloaded when keys are present.
 
      The anon key is safe to commit even though this repo is public - it only
      ever acts as the signed-in user, and supabase/schema.sql restricts every
@@ -630,7 +631,6 @@ body {
   window.BS_SUPABASE_URL      = '';
   window.BS_SUPABASE_ANON_KEY = '';
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.js"></script>
 
 <!-- Prospect rankings, refreshed by update-prospects.mjs. The inline copy keeps
      ranks working when this file is opened straight off disk; when it is served
@@ -840,7 +840,234 @@ function orgLine(p) {
    list even after he drops off the leaderboards. That is the point of
    following someone.
 ──────────────────────────────────────────────────────────── */
-const WATCH_KEY = 'bs-watchlist-v1';
+const WATCH_KEY   = 'bs-watchlist-v1';
+const REMOVED_KEY = 'bs-watchlist-removed-v1';
+
+/* ── Shared-file sync (Dropbox, OneDrive, any synced folder) ─────
+   Point the page at one JSON file inside your Dropbox and every
+   computer that opens the same file shares one watchlist. Dropbox does
+   the syncing; we only read, merge and write.
+
+   Removals are recorded as tombstones rather than just dropping the
+   row, because a plain union of two files can never tell "added on the
+   laptop" apart from "deleted on the desktop" - without them, anything
+   you unstar on one machine would come straight back from the other.
+──────────────────────────────────────────────────────────── */
+let fileHandle = null;
+let fileStatus = 'off';   // off | connected | needs-permission | error
+let fileName   = '';
+let fileMsg    = '';
+let removedList = [];     // [{ id, removedAt }]
+let fileSyncTimer = null;
+
+const FS_SUPPORTED = typeof window.showSaveFilePicker === 'function';
+
+/* The file handle survives reloads in IndexedDB; localStorage cannot
+   hold one. */
+const IDB_NAME = 'bs-sync', IDB_STORE = 'handles', IDB_KEY = 'watchlist-file';
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+async function idbSet(key, val) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(val, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror    = () => reject(tx.error);
+  });
+}
+async function idbGet(key) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const r  = tx.objectStore(IDB_STORE).get(key);
+    r.onsuccess = () => resolve(r.result || null);
+    r.onerror   = () => reject(r.error);
+  });
+}
+async function idbDel(key) {
+  const db = await idbOpen();
+  return new Promise((resolve) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete(key);
+    tx.oncomplete = () => resolve();
+  });
+}
+
+function loadRemoved() {
+  try {
+    const raw = localStorage.getItem(REMOVED_KEY);
+    removedList = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(removedList)) removedList = [];
+  } catch(e) { removedList = []; }
+}
+function persistRemoved() {
+  try { localStorage.setItem(REMOVED_KEY, JSON.stringify(removedList)); }
+  catch(e) { /* quota - not fatal */ }
+}
+
+/* Last write wins per player, and an add beats a tombstone only if it
+   happened after it. */
+function mergeState(a, b) {
+  const adds = new Map(), dels = new Map();
+  for (const st of [a, b]) {
+    (st?.players || []).forEach(p => {
+      const prev = adds.get(p.id);
+      if (!prev || (p.addedAt || '') > (prev.addedAt || '')) adds.set(p.id, p);
+    });
+    (st?.removed || []).forEach(r => {
+      const prev = dels.get(r.id);
+      if (!prev || (r.removedAt || '') > (prev.removedAt || '')) dels.set(r.id, r);
+    });
+  }
+  const players = [];
+  for (const [id, p] of adds) {
+    const d = dels.get(id);
+    if (!d || (d.removedAt || '') <= (p.addedAt || '')) {
+      players.push(p);
+      dels.delete(id);          // re-added since deletion; tombstone is stale
+    }
+  }
+  // Tombstones are only needed until every device has seen them.
+  const cutoff = new Date(Date.now() - 90 * 864e5).toISOString();
+  const removed = [...dels.values()].filter(r => (r.removedAt || '') > cutoff);
+  players.sort((x, y) => (y.addedAt || '').localeCompare(x.addedAt || ''));
+  return { players, removed };
+}
+
+async function ensureFilePermission(interactive) {
+  if (!fileHandle) return false;
+  const opts = { mode: 'readwrite' };
+  let p = await fileHandle.queryPermission(opts);
+  if (p === 'granted') return true;
+  if (interactive) p = await fileHandle.requestPermission(opts);
+  if (p === 'granted') return true;
+  fileStatus = 'needs-permission';
+  renderSyncBar();
+  return false;
+}
+
+async function readSyncFile() {
+  try {
+    const f = await fileHandle.getFile();
+    const text = (await f.text()).trim();
+    if (!text) return { players: [], removed: [] };
+    const d = JSON.parse(text);
+    return { players: d.players || [], removed: d.removed || [] };
+  } catch(e) {
+    console.warn('Could not read sync file', e);
+    return null;
+  }
+}
+
+async function writeSyncFile(state) {
+  const payload = {
+    app: 'baseball-scout',
+    version: 1,
+    updated: new Date().toISOString(),
+    players: state.players,
+    removed: state.removed,
+  };
+  const w = await fileHandle.createWritable();
+  await w.write(JSON.stringify(payload, null, 2));
+  await w.close();
+}
+
+/* Read what the other computer left, merge it with what is here, write
+   the result back. Safe to call often. */
+async function syncFileNow(interactive) {
+  if (!fileHandle) return;
+  if (!(await ensureFilePermission(interactive))) return;
+  try {
+    const remote = await readSyncFile();
+    const merged = mergeState({ players: watchlist, removed: removedList },
+                              remote || { players: [], removed: [] });
+    watchlist   = merged.players;
+    removedList = merged.removed;
+    persistLocal(); persistRemoved();
+    updateWatchCount(); refreshStars();
+    await writeSyncFile(merged);
+    fileStatus = 'connected';
+    fileMsg = 'Synced ' + new Date().toLocaleTimeString('en-US',
+      { hour: 'numeric', minute: '2-digit' });
+  } catch(e) {
+    console.warn('File sync failed', e);
+    fileStatus = 'error';
+    fileMsg = 'Sync failed: ' + (e.message || e);
+  }
+  renderSyncBar();
+}
+
+/* Debounced, so rapid starring does not thrash the file. */
+function queueFileSync() {
+  if (!fileHandle) return;
+  clearTimeout(fileSyncTimer);
+  fileSyncTimer = setTimeout(() => syncFileNow(false), 700);
+}
+
+async function chooseSyncFile(mode) {
+  try {
+    let handle;
+    if (mode === 'open') {
+      [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'Watchlist JSON', accept: { 'application/json': ['.json'] } }],
+        multiple: false,
+      });
+    } else {
+      handle = await window.showSaveFilePicker({
+        suggestedName: 'baseball-scout-watchlist.json',
+        types: [{ description: 'Watchlist JSON', accept: { 'application/json': ['.json'] } }],
+      });
+    }
+    fileHandle = handle;
+    fileName   = handle.name;
+    await idbSet(IDB_KEY, handle);
+    localStorage.setItem('bs-sync-filename', fileName);
+    fileStatus = 'connected';
+    fileMsg = '';
+    await syncFileNow(true);
+    if (currentView === 'watchlist') showWatchlist();
+  } catch(e) {
+    if (e.name !== 'AbortError') {
+      fileStatus = 'error';
+      fileMsg = 'Could not open that file: ' + (e.message || e);
+      renderSyncBar();
+    }
+  }
+}
+
+async function disconnectSyncFile() {
+  fileHandle = null;
+  fileName = '';
+  fileStatus = 'off';
+  fileMsg = 'Disconnected. This device is back to a local-only watchlist.';
+  await idbDel(IDB_KEY);
+  localStorage.removeItem('bs-sync-filename');
+  renderSyncBar();
+}
+
+/* Reconnect silently on load when Chrome still remembers the grant. */
+async function restoreSyncFile() {
+  if (!FS_SUPPORTED) return;
+  try {
+    const handle = await idbGet(IDB_KEY);
+    if (!handle) return;
+    fileHandle = handle;
+    fileName   = handle.name || localStorage.getItem('bs-sync-filename') || 'watchlist.json';
+    const p = await handle.queryPermission({ mode: 'readwrite' });
+    fileStatus = p === 'granted' ? 'connected' : 'needs-permission';
+    if (p === 'granted') await syncFileNow(false);
+    renderSyncBar();
+  } catch(e) { console.warn('Could not restore sync file', e); }
+}
+
 
 /* ── Optional cross-device sync (Supabase) ──────────────────────
    localStorage stays the source of truth for the UI so the page works
@@ -856,9 +1083,23 @@ function syncConfigured() {
   return !!(window.BS_SUPABASE_URL && window.BS_SUPABASE_ANON_KEY);
 }
 
-function initSync() {
-  if (!syncConfigured() || !window.supabase?.createClient) return;
+/* Pull in the Supabase SDK only if keys are configured - no reason to make
+   every visitor download 200KB for a feature that is switched off. */
+function loadSupabaseSdk() {
+  return new Promise((resolve, reject) => {
+    if (window.supabase?.createClient) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('CDN load failed'));
+    document.head.appendChild(s);
+  });
+}
+
+async function initSync() {
+  if (!syncConfigured()) return;
   try {
+    await loadSupabaseSdk();
     sb = window.supabase.createClient(
       window.BS_SUPABASE_URL, window.BS_SUPABASE_ANON_KEY);
   } catch(e) { console.warn('Supabase init failed', e); return; }
@@ -957,36 +1198,68 @@ function renderSyncBar() {
   bar.style.display = currentView === 'watchlist' ? 'flex' : 'none';
   if (currentView !== 'watchlist') return;
 
+  // Supabase, when configured, takes over - it reaches phones too.
+  if (syncConfigured()) { bar.innerHTML = supabaseBarHtml(); return; }
+
+  const note = fileMsg
+    ? `<span class="${fileStatus === 'error' ? 'sync-err' : ''}" ` +
+      `style="font-size:11px">${fileMsg}</span>`
+    : '';
+
+  if (!FS_SUPPORTED) {
+    bar.innerHTML =
+      `<span>💾 Saved on this device only. Shared-folder sync needs Chrome ` +
+      `or Edge on desktop — this browser can’t do it.</span>`;
+    return;
+  }
+
+  if (fileStatus === 'connected') {
+    bar.innerHTML =
+      `<span class="sync-dot"></span>` +
+      `<span>Syncing to <strong>${fileName}</strong></span>` +
+      `<button class="sync-btn" onclick="syncFileNow(true)">↻ Sync now</button>` +
+      `<button class="sync-btn ghost" onclick="disconnectSyncFile()">Disconnect</button>` +
+      note;
+    return;
+  }
+
+  if (fileStatus === 'needs-permission') {
+    bar.innerHTML =
+      `<span>🔒 Chrome needs you to re-confirm access to ` +
+      `<strong>${fileName}</strong> for this session.</span>` +
+      `<button class="sync-btn" onclick="syncFileNow(true)">Reconnect</button>` +
+      `<button class="sync-btn ghost" onclick="disconnectSyncFile()">Forget it</button>`;
+    return;
+  }
+
+  bar.innerHTML =
+    `<span>🔗 Share this watchlist between computers — keep the file in ` +
+    `Dropbox and open the same one on each:</span>` +
+    `<button class="sync-btn" onclick="chooseSyncFile('create')">Create sync file…</button>` +
+    `<button class="sync-btn ghost" onclick="chooseSyncFile('open')">Open existing…</button>` +
+    note;
+}
+
+function supabaseBarHtml() {
   const msg = syncMsg
     ? `<span class="${/could not|error/i.test(syncMsg) ? 'sync-err' : ''}">${syncMsg}</span>`
     : '';
-
-  if (!syncConfigured()) {
-    bar.innerHTML =
-      `<span>💾 Saved on this device only. To sync across computers, ` +
-      `add your Supabase keys — see <code>supabase/schema.sql</code>.</span>`;
-    return;
-  }
   if (!sb) {
-    bar.innerHTML = `<span class="sync-err">Sync library failed to load — ` +
-                    `watchlist is local to this device.</span>`;
-    return;
+    return `<span class="sync-err">Sync library failed to load — ` +
+           `watchlist is local to this device.</span>`;
   }
   if (syncUser) {
-    bar.innerHTML =
-      `<span class="sync-dot"></span>` +
-      `<span>Synced as <strong>${syncUser.email}</strong></span>` +
-      `<button class="sync-btn ghost" onclick="signOutSync()">Sign out</button>` +
-      msg;
-    return;
+    return `<span class="sync-dot"></span>` +
+           `<span>Synced as <strong>${syncUser.email}</strong></span>` +
+           `<button class="sync-btn ghost" onclick="signOutSync()">Sign out</button>` +
+           msg;
   }
-  bar.innerHTML =
-    `<span>🔗 Sync across devices:</span>` +
-    `<input type="email" id="sync-email" placeholder="you@example.com" ` +
-    `onkeydown="if(event.key==='Enter')sendMagicLink()">` +
-    `<button class="sync-btn" onclick="sendMagicLink()" ${syncBusy ? 'disabled' : ''}>` +
-    `${syncBusy ? 'Sending…' : 'Email me a link'}</button>` +
-    msg;
+  return `<span>🔗 Sync across devices:</span>` +
+         `<input type="email" id="sync-email" placeholder="you@example.com" ` +
+         `onkeydown="if(event.key==='Enter')sendMagicLink()">` +
+         `<button class="sync-btn" onclick="sendMagicLink()" ${syncBusy ? 'disabled' : ''}>` +
+         `${syncBusy ? 'Sending…' : 'Email me a link'}</button>` +
+         msg;
 }
 
 /* Repaint every star on screen to match the current list. */
@@ -1043,20 +1316,26 @@ function indexPlayer(p) {
 function toggleWatch(id, ev) {
   if (ev) ev.stopPropagation();
   const p = playerIndex.get(id) || {};
+  const now = new Date().toISOString();
   if (isWatched(id)) {
     watchlist = watchlist.filter(w => w.id !== id);
+    removedList = removedList.filter(r => r.id !== id);
+    removedList.push({ id, removedAt: now });   // tombstone, so the delete syncs
     pushRemove(id);                 // fire and forget; local state already right
   } else {
     const entry = {
       id,
       name: p.name || 'Player ' + id,
       kind: p.kind || 'hitter',
-      addedAt: new Date().toISOString(),
+      addedAt: now,
     };
     watchlist.push(entry);
+    removedList = removedList.filter(r => r.id !== id);
     pushAdd(entry);
   }
   saveWatchlist();
+  persistRemoved();
+  queueFileSync();
 
   // Repaint stars in place; rebuild fully when viewing the watchlist.
   if (currentView === 'watchlist') { renderWatchGrid(); return; }
@@ -1257,6 +1536,9 @@ async function showWatchlist() {
   document.getElementById('error-state').style.display   = 'none';
   document.getElementById('summary-strip').style.display = 'none';
   grid.style.display = 'grid';
+
+  // Pick up anything the other computer wrote since last time.
+  if (fileHandle && fileStatus === 'connected') await syncFileNow(false);
 
   if (!watchlist.length) { renderWatchGrid(); return; }
 
@@ -2179,8 +2461,19 @@ function refresh() {
 document.getElementById('date-badge').textContent =
   new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
 loadWatchlist();
+loadRemoved();
+restoreSyncFile();
 initSync();
 loadData();
+
+// Another computer may have written while this tab sat in the background.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && fileHandle && fileStatus === 'connected') {
+    syncFileNow(false).then(() => {
+      if (currentView === 'watchlist') renderWatchGrid();
+    });
+  }
+});
 </script>
 </body>
 </html>

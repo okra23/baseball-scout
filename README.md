@@ -42,13 +42,43 @@ Storage is `localStorage` under `bs-watchlist-v1`. With sync switched off that
 is the whole story: the list survives refreshes and redeploys but stays on one
 browser.
 
-### Syncing across computers (optional)
+### Syncing across computers via Dropbox (no account, no cost)
 
-Sync is off until you add two values. Nothing below is required to use the app.
+Keep one JSON file in your Dropbox and point each computer at it. Dropbox does
+the syncing; the page only reads, merges and writes.
 
-1. **Create a Supabase project** — a free one at
-   [supabase.com/dashboard](https://supabase.com/dashboard). Keep it separate
-   from any production project; this repo is public.
+1. Open the Watchlist tab on your main computer and click **Create sync file…**
+2. Save it inside your Dropbox folder — `baseball-scout-watchlist.json` is fine.
+3. On the other computer, wait for Dropbox to bring the file down, then open the
+   Watchlist tab there and click **Open existing…** and pick that same file.
+
+Both machines now share one list. Changes flow on load, when you switch back to
+the tab, and a moment after each star.
+
+**Requirements.** Chrome or Edge on desktop — this uses the File System Access
+API, which Firefox and Safari do not implement and which does not exist on iOS
+or Android. It also needs the page served over https, so use the deployed URL
+rather than opening the file off disk. Chrome may ask you to re-confirm access
+to the file once per browsing session; the bar shows a **Reconnect** button when
+it does.
+
+**Deletions.** Removals are stored as tombstones alongside the players rather
+than by simply dropping the row. A plain merge of two files cannot tell "added
+on the laptop" from "deleted on the desktop", so without them anything you
+unstarred on one machine would come back from the other. Tombstones are pruned
+after 90 days.
+
+### Syncing via Supabase instead (optional, reaches phones)
+
+The Dropbox route above needs none of this. Use Supabase only if you want the
+watchlist on a phone or in a non-Chrome browser. When these keys are filled in
+they take over the sync bar; the SDK is not downloaded otherwise.
+
+1. **Use a Supabase project** — a new free one at
+   [supabase.com/dashboard](https://supabase.com/dashboard), or add the table to
+   a project you already have. A *new* project can push you past the free
+   project limit and start costing money, whereas one extra table in an existing
+   project is free; RLS isolates it either way.
 
 2. **Create the table** — SQL Editor → New query → paste
    [`supabase/schema.sql`](supabase/schema.sql) → Run. It creates `watchlist`,
