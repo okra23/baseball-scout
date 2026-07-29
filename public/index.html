@@ -325,6 +325,55 @@ body {
   font-style: italic;
   margin-bottom: 10px;
 }
+
+.sync-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 11px 14px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: #64748b;
+}
+.sync-bar input[type="email"] {
+  flex: 1;
+  min-width: 190px;
+  padding: 7px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.sync-bar input[type="email"]:focus { outline: none; border-color: #2563eb; }
+.sync-btn {
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #1e3a5f;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sync-btn:hover:not(:disabled) { background: #2563eb; }
+.sync-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+.sync-btn.ghost {
+  background: white;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+.sync-btn.ghost:hover { background: #f8fafc; color: #dc2626; border-color: #fecaca; }
+.sync-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #16a34a;
+  flex-shrink: 0;
+}
+.sync-err { color: #dc2626; font-weight: 600; }
 .watch-remove {
   display: block;
   width: 100%;
@@ -517,6 +566,8 @@ body {
 
   <div id="rankings-note" style="font-size:11px;color:#94a3b8;margin:-8px 0 16px 2px">—</div>
 
+  <div class="sync-bar" id="sync-bar" style="display:none"></div>
+
   <div class="summary-strip" id="summary-strip" style="display:none">
     <div class="summary-card">
       <div class="summary-val" id="sum-total" style="color:#1e3a5f">—</div>
@@ -569,6 +620,18 @@ body {
     <div>Built by <a href="https://github.com/okra23" target="_blank" rel="noopener">@okra23</a> · <a href="https://github.com/okra23/baseball-scout" target="_blank" rel="noopener">Source</a></div>
   </div>
 </footer>
+<!-- Watchlist sync (optional). Fill these in to sync your watchlist across
+     devices; leave them blank and the watchlist stays local to this browser.
+
+     The anon key is safe to commit even though this repo is public - it only
+     ever acts as the signed-in user, and supabase/schema.sql restricts every
+     row to its owner. Never put the service_role key here. -->
+<script>
+  window.BS_SUPABASE_URL      = '';
+  window.BS_SUPABASE_ANON_KEY = '';
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.js"></script>
+
 <!-- Prospect rankings, refreshed by update-prospects.mjs. The inline copy keeps
      ranks working when this file is opened straight off disk; when it is served
      over http the page prefers a newer prospects.json sitting next to it. -->
@@ -779,6 +842,163 @@ function orgLine(p) {
 ──────────────────────────────────────────────────────────── */
 const WATCH_KEY = 'bs-watchlist-v1';
 
+/* ── Optional cross-device sync (Supabase) ──────────────────────
+   localStorage stays the source of truth for the UI so the page works
+   signed out and offline. When a session exists, every change is also
+   written through to Supabase and the remote list wins on load.
+──────────────────────────────────────────────────────────── */
+let sb = null;          // Supabase client, or null when unconfigured
+let syncUser = null;    // { id, email } when signed in
+let syncMsg  = '';      // transient status shown in the sync bar
+let syncBusy = false;
+
+function syncConfigured() {
+  return !!(window.BS_SUPABASE_URL && window.BS_SUPABASE_ANON_KEY);
+}
+
+function initSync() {
+  if (!syncConfigured() || !window.supabase?.createClient) return;
+  try {
+    sb = window.supabase.createClient(
+      window.BS_SUPABASE_URL, window.BS_SUPABASE_ANON_KEY);
+  } catch(e) { console.warn('Supabase init failed', e); return; }
+
+  sb.auth.onAuthStateChange(async (_event, session) => {
+    const wasSignedIn = !!syncUser;
+    syncUser = session?.user
+      ? { id: session.user.id, email: session.user.email }
+      : null;
+    renderSyncBar();
+    if (syncUser && !wasSignedIn) {
+      // First sight of a session: fold anything saved on this device into
+      // the account, then let the account be the truth.
+      await mergeLocalIntoRemote();
+      await pullRemote();
+      if (currentView === 'watchlist') showWatchlist();
+    }
+  });
+}
+
+async function sendMagicLink() {
+  const input = document.getElementById('sync-email');
+  const email = (input?.value || '').trim();
+  if (!email) { syncMsg = 'Enter your email first.'; renderSyncBar(); return; }
+
+  syncBusy = true; syncMsg = ''; renderSyncBar();
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: location.origin + location.pathname },
+  });
+  syncBusy = false;
+  syncMsg = error ? `Could not send link: ${error.message}`
+                  : `Sign-in link sent to ${email} — open it on this device.`;
+  renderSyncBar();
+}
+
+async function signOutSync() {
+  await sb.auth.signOut();
+  syncUser = null;
+  syncMsg = 'Signed out. This device is back to a local-only watchlist.';
+  renderSyncBar();
+}
+
+/* Push anything saved locally up to the account, without clobbering
+   rows already there. */
+async function mergeLocalIntoRemote() {
+  if (!sb || !syncUser || !watchlist.length) return;
+  const rows = watchlist.map(w => ({
+    user_id:   syncUser.id,
+    player_id: w.id,
+    name:      w.name || '',
+    kind:      w.kind || 'hitter',
+    added_at:  w.addedAt || new Date().toISOString(),
+  }));
+  const { error } = await sb.from('watchlist')
+    .upsert(rows, { onConflict: 'user_id,player_id', ignoreDuplicates: true });
+  if (error) console.warn('watchlist merge failed', error);
+}
+
+async function pullRemote() {
+  if (!sb || !syncUser) return;
+  const { data, error } = await sb.from('watchlist')
+    .select('player_id,name,kind,added_at')
+    .order('added_at', { ascending: false });
+  if (error) { console.warn('watchlist pull failed', error); return; }
+  watchlist = (data || []).map(r => ({
+    id: r.player_id, name: r.name, kind: r.kind, addedAt: r.added_at,
+  }));
+  persistLocal();
+  updateWatchCount();
+  refreshStars();
+}
+
+async function pushAdd(entry) {
+  if (!sb || !syncUser) return;
+  const { error } = await sb.from('watchlist').upsert({
+    user_id:   syncUser.id,
+    player_id: entry.id,
+    name:      entry.name,
+    kind:      entry.kind,
+    added_at:  entry.addedAt,
+  }, { onConflict: 'user_id,player_id' });
+  if (error) console.warn('watchlist add failed', error);
+}
+
+async function pushRemove(id) {
+  if (!sb || !syncUser) return;
+  const { error } = await sb.from('watchlist')
+    .delete().eq('user_id', syncUser.id).eq('player_id', id);
+  if (error) console.warn('watchlist remove failed', error);
+}
+
+function renderSyncBar() {
+  const bar = document.getElementById('sync-bar');
+  if (!bar) return;
+  bar.style.display = currentView === 'watchlist' ? 'flex' : 'none';
+  if (currentView !== 'watchlist') return;
+
+  const msg = syncMsg
+    ? `<span class="${/could not|error/i.test(syncMsg) ? 'sync-err' : ''}">${syncMsg}</span>`
+    : '';
+
+  if (!syncConfigured()) {
+    bar.innerHTML =
+      `<span>💾 Saved on this device only. To sync across computers, ` +
+      `add your Supabase keys — see <code>supabase/schema.sql</code>.</span>`;
+    return;
+  }
+  if (!sb) {
+    bar.innerHTML = `<span class="sync-err">Sync library failed to load — ` +
+                    `watchlist is local to this device.</span>`;
+    return;
+  }
+  if (syncUser) {
+    bar.innerHTML =
+      `<span class="sync-dot"></span>` +
+      `<span>Synced as <strong>${syncUser.email}</strong></span>` +
+      `<button class="sync-btn ghost" onclick="signOutSync()">Sign out</button>` +
+      msg;
+    return;
+  }
+  bar.innerHTML =
+    `<span>🔗 Sync across devices:</span>` +
+    `<input type="email" id="sync-email" placeholder="you@example.com" ` +
+    `onkeydown="if(event.key==='Enter')sendMagicLink()">` +
+    `<button class="sync-btn" onclick="sendMagicLink()" ${syncBusy ? 'disabled' : ''}>` +
+    `${syncBusy ? 'Sending…' : 'Email me a link'}</button>` +
+    msg;
+}
+
+/* Repaint every star on screen to match the current list. */
+function refreshStars() {
+  document.querySelectorAll('.watch-btn').forEach(b => {
+    const on = isWatched(Number(b.dataset.id));
+    b.classList.toggle('on', on);
+    b.textContent = on ? '★' : '☆';
+    b.title = on ? 'Remove from watchlist' : 'Add to watchlist';
+  });
+}
+
 function loadWatchlist() {
   try {
     const raw = localStorage.getItem(WATCH_KEY);
@@ -788,12 +1008,16 @@ function loadWatchlist() {
   updateWatchCount();
 }
 
-function saveWatchlist() {
+function persistLocal() {
   try {
     localStorage.setItem(WATCH_KEY, JSON.stringify(watchlist));
   } catch(e) {
     console.warn('Could not save watchlist', e);
   }
+}
+
+function saveWatchlist() {
+  persistLocal();
   updateWatchCount();
 }
 
@@ -821,13 +1045,16 @@ function toggleWatch(id, ev) {
   const p = playerIndex.get(id) || {};
   if (isWatched(id)) {
     watchlist = watchlist.filter(w => w.id !== id);
+    pushRemove(id);                 // fire and forget; local state already right
   } else {
-    watchlist.push({
+    const entry = {
       id,
       name: p.name || 'Player ' + id,
       kind: p.kind || 'hitter',
       addedAt: new Date().toISOString(),
-    });
+    };
+    watchlist.push(entry);
+    pushAdd(entry);
   }
   saveWatchlist();
 
@@ -1911,6 +2138,7 @@ function setView(view, el) {
   const note    = document.getElementById('rankings-note');
   if (filters) filters.style.display = view === 'watchlist' ? 'none' : 'flex';
   if (note)    note.style.display    = view === 'watchlist' ? 'none' : 'block';
+  renderSyncBar();
 
   if (view === 'watchlist') {
     showWatchlist();
@@ -1951,6 +2179,7 @@ function refresh() {
 document.getElementById('date-badge').textContent =
   new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
 loadWatchlist();
+initSync();
 loadData();
 </script>
 </body>

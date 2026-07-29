@@ -38,8 +38,51 @@ each time you open the tab. That means a watched player:
 If he *is* on a leaderboard that session, the card keeps its full buy score,
 urgency badge and heating/cooling trend chip.
 
-Storage is `localStorage` under `bs-watchlist-v1`, so the list is per browser —
-it survives refreshes and redeploys, but does not sync between devices.
+Storage is `localStorage` under `bs-watchlist-v1`. With sync switched off that
+is the whole story: the list survives refreshes and redeploys but stays on one
+browser.
+
+### Syncing across computers (optional)
+
+Sync is off until you add two values. Nothing below is required to use the app.
+
+1. **Create a Supabase project** — a free one at
+   [supabase.com/dashboard](https://supabase.com/dashboard). Keep it separate
+   from any production project; this repo is public.
+
+2. **Create the table** — SQL Editor → New query → paste
+   [`supabase/schema.sql`](supabase/schema.sql) → Run. It creates `watchlist`,
+   turns on row level security, and adds policies so every row is readable and
+   writable only by the user who owns it.
+
+3. **Allow the redirect** — Authentication → URL Configuration → add your
+   deployed URL (and `http://localhost:3010` if you preview locally) under
+   *Redirect URLs*, or the magic link will bounce.
+
+4. **Paste your keys** into the config block near the bottom of
+   `public/index.html`:
+
+   ```html
+   window.BS_SUPABASE_URL      = 'https://<project>.supabase.co';
+   window.BS_SUPABASE_ANON_KEY = 'eyJ...';
+   ```
+
+   Both come from Project Settings → API. Use the **anon/public** key.
+
+Then open the Watchlist tab, enter your email, and click the link Supabase
+sends. Do the same on your other computer and both share one list.
+
+**On committing the anon key.** It is meant to live in browsers and is safe in
+a public repo *because* of step 2 — RLS is on and every policy compares
+`auth.uid()` to the row owner, so someone holding the key while signed out can
+read and write nothing. The `service_role` key is the opposite: it bypasses RLS
+entirely and must never go in this file.
+
+**How the two layers interact.** localStorage remains the source of truth for
+the UI, so the page still works signed out and offline. When a session exists,
+each star also writes through to Supabase; on sign-in anything saved locally is
+merged up first, then the account's list becomes the truth. Sign out and you
+simply fall back to the local list.
 
 ## Data sources
 
