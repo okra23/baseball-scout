@@ -4,3 +4,7 @@
 Thumbs.db
 .vercel
 preview*.png
+
+# atomic-write leftovers from update-prospects.mjs
+*.tmp
+*.new

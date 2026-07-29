@@ -282,6 +282,22 @@ body {
 }
 .player-name { font-size: 16px; font-weight: 800; color: #1e293b; }
 .player-meta { font-size: 12px; color: #94a3b8; margin-top: 3px; }
+
+.org-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+.org-name { font-size: 12px; font-weight: 700; color: #475569; }
+.rank-num {
+  font-size: 13px;
+  font-weight: 900;
+  color: #dc2626;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
 .score-big { font-size: 30px; font-weight: 900; line-height: 1; }
 .score-denom { font-size: 10px; color: #cbd5e1; text-align: right; }
 
@@ -448,7 +464,10 @@ body {
     <button class="filter-btn" onclick="setFilter('A+', this)">🌱 High-A</button>
     <button class="filter-btn" onclick="setFilter('A', this)">🌿 Low-A</button>
     <button class="filter-btn" onclick="setFilter('promoted', this)">🚀 Promoted</button>
+    <button class="filter-btn" onclick="setFilter('ranked', this)">⭐ Ranked Prospects</button>
   </div>
+
+  <div id="rankings-note" style="font-size:11px;color:#94a3b8;margin:-8px 0 16px 2px">—</div>
 
   <div class="summary-strip" id="summary-strip" style="display:none">
     <div class="summary-card">
@@ -502,6 +521,13 @@ body {
     <div>Built by <a href="https://github.com/okra23" target="_blank" rel="noopener">@okra23</a> · <a href="https://github.com/okra23/baseball-scout" target="_blank" rel="noopener">Source</a></div>
   </div>
 </footer>
+<!-- Prospect rankings, refreshed by update-prospects.mjs. The inline copy keeps
+     ranks working when this file is opened straight off disk; when it is served
+     over http the page prefers a newer prospects.json sitting next to it. -->
+<!-- PROSPECT-RANKINGS:START -->
+<script id="prospect-rankings" type="application/json">{"source":"MLB Pipeline - mlb.com/milb/prospects","season":2026,"updated":"2026-07-29T16:49:57.708Z","clubs":30,"count":900,"ranks":{"669360":{"r":24,"o":"DET"},"669361":{"r":15,"o":"CHC"},"669899":{"r":20,"o":"LAD"},"671655":{"r":30,"o":"CLE"},"672359":{"r":26,"o":"SD"},"673662":{"r":22,"o":"SEA"},"675085":{"r":10,"o":"CHC"},"678184":{"r":23,"o":"SD"},"680664":{"r":11,"o":"DET"},"680684":{"r":15,"o":"ATH"},"681041":{"r":20,"o":"SEA"},"681047":{"r":29,"o":"WSH"},"681066":{"r":26,"o":"CWS"},"682877":{"r":29,"o":"CLE"},"682982":{"r":16,"o":"CLE"},"682995":{"r":10,"o":"PIT"},"683093":{"r":15,"o":"BOS"},"683235":{"r":9,"o":"CLE"},"683344":{"r":30,"o":"TB"},"683352":{"r":9,"o":"ARI"},"683742":{"r":9,"o":"CIN"},"684442":{"r":22,"o":"ARI"},"684516":{"r":30,"o":"STL"},"685326":{"r":26,"o":"COL"},"686628":{"r":13,"o":"ATL"},"686632":{"r":12,"o":"KC"},"686934":{"r":18,"o":"PHI"},"687273":{"r":7,"o":"STL"},"687309":{"r":14,"o":"STL"},"687312":{"r":18,"o":"COL"},"687394":{"r":22,"o":"PIT"},"687593":{"r":28,"o":"KC"},"687605":{"r":30,"o":"WSH"},"687762":{"r":19,"o":"BOS"},"687924":{"r":18,"o":"CIN"},"687931":{"r":12,"o":"SF"},"688457":{"r":25,"o":"KC"},"688460":{"r":14,"o":"TOR"},"688867":{"r":14,"o":"BAL"},"689196":{"r":3,"o":"CHC"},"689200":{"r":6,"o":"TB"},"689441":{"r":25,"o":"MIL"},"689818":{"r":7,"o":"CWS"},"689958":{"r":24,"o":"CLE"},"689981":{"r":7,"o":"LAD"},"690217":{"r":21,"o":"MIN"},"690279":{"r":8,"o":"CWS"},"690294":{"r":25,"o":"CWS"},"690961":{"r":10,"o":"BAL"},"691000":{"r":30,"o":"SD"},"691002":{"r":26,"o":"WSH"},"691003":{"r":29,"o":"TB"},"691181":{"r":3,"o":"MIN"},"691330":{"r":9,"o":"PHI"},"691369":{"r":23,"o":"BOS"},"691373":{"r":5,"o":"PIT"},"691384":{"r":11,"o":"WSH"},"691437":{"r":29,"o":"TOR"},"691441":{"r":23,"o":"ARI"},"691548":{"r":15,"o":"ATL"},"691620":{"r":13,"o":"MIL"},"691728":{"r":7,"o":"COL"},"691730":{"r":17,"o":"WSH"},"691765":{"r":28,"o":"TB"},"691775":{"r":7,"o":"NYM"},"691776":{"r":25,"o":"CLE"},"691786":{"r":29,"o":"SEA"},"691789":{"r":30,"o":"DET"},"691792":{"r":11,"o":"COL"},"691795":{"r":27,"o":"NYY"},"691945":{"r":28,"o":"TEX"},"691946":{"r":9,"o":"LAA"},"692013":{"r":13,"o":"ATH"},"692030":{"r":22,"o":"TEX"},"692039":{"r":21,"o":"SEA"},"692110":{"r":12,"o":"NYY"},"692117":{"r":26,"o":"TOR"},"692150":{"r":27,"o":"TB"},"692238":{"r":10,"o":"SF"},"692294":{"r":17,"o":"SD"},"692437":{"r":11,"o":"TEX"},"692478":{"r":13,"o":"TOR"},"692632":{"r":23,"o":"COL"},"692657":{"r":17,"o":"PIT"},"693311":{"r":28,"o":"STL"},"693713":{"r":17,"o":"TEX"},"693850":{"r":28,"o":"MIN"},"694057":{"r":28,"o":"BOS"},"694183":{"r":13,"o":"MIA"},"694187":{"r":24,"o":"KC"},"694194":{"r":25,"o":"BOS"},"694197":{"r":2,"o":"CLE"},"694224":{"r":9,"o":"MIN"},"694230":{"r":10,"o":"MIN"},"694341":{"r":22,"o":"NYY"},"694345":{"r":25,"o":"BAL"},"694346":{"r":8,"o":"BAL"},"694357":{"r":10,"o":"TOR"},"694358":{"r":10,"o":"STL"},"694370":{"r":15,"o":"BAL"},"694375":{"r":19,"o":"TB"},"694385":{"r":30,"o":"MIL"},"694393":{"r":6,"o":"CHC"},"694397":{"r":16,"o":"MIN"},"694410":{"r":6,"o":"ARI"},"694494":{"r":10,"o":"TB"},"694495":{"r":21,"o":"TOR"},"694514":{"r":9,"o":"COL"},"694545":{"r":13,"o":"HOU"},"694580":{"r":7,"o":"MIA"},"694633":{"r":21,"o":"NYY"},"694673":{"r":23,"o":"WSH"},"694696":{"r":15,"o":"NYY"},"694753":{"r":21,"o":"PIT"},"694757":{"r":30,"o":"SF"},"694795":{"r":30,"o":"MIA"},"694805":{"r":11,"o":"NYY"},"694840":{"r":23,"o":"SEA"},"694876":{"r":3,"o":"CLE"},"694918":{"r":11,"o":"SF"},"694966":{"r":17,"o":"TB"},"694977":{"r":21,"o":"ATH"},"695001":{"r":14,"o":"HOU"},"695033":{"r":27,"o":"BAL"},"695034":{"r":11,"o":"ATH"},"695066":{"r":25,"o":"NYY"},"695247":{"r":13,"o":"SD"},"695293":{"r":30,"o":"BOS"},"695481":{"r":29,"o":"CIN"},"695491":{"r":3,"o":"STL"},"695501":{"r":18,"o":"MIL"},"695508":{"r":13,"o":"TEX"},"695518":{"r":29,"o":"CHC"},"695521":{"r":28,"o":"ARI"},"695524":{"r":18,"o":"CLE"},"695556":{"r":30,"o":"KC"},"695558":{"r":2,"o":"NYM"},"695560":{"r":10,"o":"NYY"},"695573":{"r":14,"o":"NYM"},"695646":{"r":30,"o":"LAD"},"695653":{"r":28,"o":"LAD"},"695667":{"r":19,"o":"KC"},"695670":{"r":7,"o":"WSH"},"695684":{"r":3,"o":"NYY"},"695695":{"r":28,"o":"BAL"},"695705":{"r":19,"o":"CIN"},"695720":{"r":7,"o":"ATH"},"695721":{"r":20,"o":"BOS"},"695722":{"r":15,"o":"CWS"},"695735":{"r":17,"o":"BAL"},"695761":{"r":19,"o":"ATH"},"695763":{"r":21,"o":"WSH"},"695765":{"r":7,"o":"NYY"},"695766":{"r":15,"o":"STL"},"696062":{"r":15,"o":"PIT"},"696070":{"r":6,"o":"MIN"},"696135":{"r":14,"o":"CLE"},"696145":{"r":30,"o":"PIT"},"696146":{"r":2,"o":"CWS"},"696275":{"r":28,"o":"COL"},"696277":{"r":27,"o":"ARI"},"696280":{"r":25,"o":"HOU"},"696286":{"r":16,"o":"ATH"},"696292":{"r":6,"o":"NYY"},"696486":{"r":9,"o":"LAD"},"697795":{"r":30,"o":"TEX"},"697811":{"r":28,"o":"NYM"},"698927":{"r":27,"o":"TOR"},"698965":{"r":28,"o":"SF"},"699008":{"r":12,"o":"PIT"},"699024":{"r":5,"o":"STL"},"699044":{"r":11,"o":"HOU"},"699073":{"r":10,"o":"DET"},"699114":{"r":16,"o":"CIN"},"699115":{"r":17,"o":"CIN"},"699130":{"r":18,"o":"TB"},"699151":{"r":18,"o":"BOS"},"699214":{"r":25,"o":"TEX"},"699276":{"r":25,"o":"MIN"},"699302":{"r":3,"o":"CIN"},"699314":{"r":12,"o":"TEX"},"699712":{"r":29,"o":"PHI"},"699944":{"r":8,"o":"CHC"},"700164":{"r":22,"o":"COL"},"700251":{"r":6,"o":"STL"},"700280":{"r":4,"o":"SD"},"700321":{"r":17,"o":"COL"},"700327":{"r":13,"o":"COL"},"700413":{"r":14,"o":"BOS"},"700579":{"r":28,"o":"ATH"},"700582":{"r":21,"o":"PHI"},"700649":{"r":5,"o":"NYY"},"700842":{"r":24,"o":"BOS"},"700924":{"r":27,"o":"KC"},"700933":{"r":25,"o":"LAA"},"700985":{"r":26,"o":"KC"},"701178":{"r":26,"o":"CLE"},"701207":{"r":23,"o":"KC"},"701241":{"r":21,"o":"SF"},"701328":{"r":11,"o":"LAD"},"701337":{"r":15,"o":"WSH"},"701339":{"r":5,"o":"MIN"},"701347":{"r":16,"o":"WSH"},"701364":{"r":2,"o":"ATH"},"701370":{"r":23,"o":"CIN"},"701388":{"r":8,"o":"STL"},"701392":{"r":15,"o":"MIL"},"701394":{"r":18,"o":"LAD"},"701411":{"r":14,"o":"NYY"},"701474":{"r":30,"o":"CWS"},"701480":{"r":9,"o":"NYY"},"701527":{"r":2,"o":"LAD"},"701546":{"r":27,"o":"PIT"},"701590":{"r":10,"o":"CLE"},"701616":{"r":25,"o":"WSH"},"701649":{"r":11,"o":"CHC"},"701679":{"r":10,"o":"COL"},"701682":{"r":20,"o":"SD"},"701717":{"r":8,"o":"TEX"},"701771":{"r":22,"o":"MIN"},"701778":{"r":19,"o":"NYY"},"701780":{"r":4,"o":"CWS"},"701783":{"r":24,"o":"COL"},"701785":{"r":2,"o":"MIN"},"701795":{"r":11,"o":"KC"},"701811":{"r":27,"o":"PHI"},"701831":{"r":17,"o":"PHI"},"701837":{"r":14,"o":"SD"},"701852":{"r":17,"o":"SF"},"701906":{"r":9,"o":"SF"},"701908":{"r":3,"o":"ARI"},"702036":{"r":30,"o":"NYY"},"702098":{"r":8,"o":"NYY"},"702253":{"r":12,"o":"CIN"},"702255":{"r":30,"o":"TOR"},"702258":{"r":24,"o":"ARI"},"702261":{"r":11,"o":"PIT"},"702264":{"r":4,"o":"SF"},"702265":{"r":21,"o":"TEX"},"702270":{"r":4,"o":"TEX"},"702274":{"r":10,"o":"LAA"},"702278":{"r":28,"o":"CLE"},"702281":{"r":2,"o":"MIA"},"702302":{"r":9,"o":"TOR"},"702303":{"r":26,"o":"CHC"},"702373":{"r":13,"o":"KC"},"702484":{"r":6,"o":"COL"},"702491":{"r":5,"o":"NYM"},"702501":{"r":12,"o":"NYM"},"702504":{"r":25,"o":"ATH"},"702505":{"r":26,"o":"MIL"},"702518":{"r":5,"o":"MIL"},"702522":{"r":26,"o":"SEA"},"702539":{"r":10,"o":"LAD"},"702540":{"r":12,"o":"BOS"},"702544":{"r":4,"o":"NYM"},"702547":{"r":23,"o":"HOU"},"702556":{"r":9,"o":"TB"},"702563":{"r":20,"o":"CIN"},"702566":{"r":7,"o":"ATL"},"702568":{"r":14,"o":"CIN"},"702576":{"r":19,"o":"CHC"},"702593":{"r":11,"o":"CLE"},"702601":{"r":15,"o":"SD"},"702607":{"r":5,"o":"SF"},"702610":{"r":2,"o":"BAL"},"702619":{"r":17,"o":"CLE"},"702650":{"r":8,"o":"TB"},"702652":{"r":7,"o":"MIL"},"702662":{"r":10,"o":"TEX"},"702668":{"r":12,"o":"SEA"},"702679":{"r":1,"o":"ARI"},"702690":{"r":22,"o":"TOR"},"702693":{"r":5,"o":"CLE"},"702695":{"r":7,"o":"PIT"},"702726":{"r":16,"o":"MIL"},"702727":{"r":29,"o":"TEX"},"702752":{"r":15,"o":"NYM"},"702976":{"r":11,"o":"SEA"},"702977":{"r":24,"o":"MIA"},"703150":{"r":21,"o":"CIN"},"703151":{"r":6,"o":"CWS"},"703154":{"r":20,"o":"PIT"},"703155":{"r":4,"o":"SEA"},"703156":{"r":28,"o":"PIT"},"703160":{"r":19,"o":"MIN"},"703185":{"r":3,"o":"LAA"},"703186":{"r":3,"o":"WSH"},"703190":{"r":26,"o":"BOS"},"703194":{"r":27,"o":"LAA"},"703197":{"r":5,"o":"SEA"},"703445":{"r":12,"o":"LAD"},"703448":{"r":6,"o":"MIA"},"703469":{"r":27,"o":"CLE"},"703483":{"r":26,"o":"ATL"},"703492":{"r":10,"o":"NYM"},"703496":{"r":24,"o":"PHI"},"703520":{"r":21,"o":"CHC"},"703563":{"r":26,"o":"MIA"},"703566":{"r":24,"o":"TOR"},"703596":{"r":4,"o":"MIA"},"703601":{"r":1,"o":"DET"},"703606":{"r":4,"o":"COL"},"703610":{"r":7,"o":"KC"},"703615":{"r":18,"o":"ARI"},"703637":{"r":15,"o":"MIA"},"703670":{"r":20,"o":"CWS"},"703676":{"r":7,"o":"HOU"},"703680":{"r":10,"o":"MIA"},"703725":{"r":21,"o":"STL"},"703804":{"r":28,"o":"SD"},"800018":{"r":22,"o":"ATH"},"800060":{"r":16,"o":"TB"},"800125":{"r":25,"o":"TOR"},"800169":{"r":5,"o":"PHI"},"800176":{"r":13,"o":"CIN"},"800198":{"r":11,"o":"ARI"},"800208":{"r":6,"o":"PIT"},"800231":{"r":27,"o":"STL"},"800286":{"r":16,"o":"ARI"},"800305":{"r":18,"o":"STL"},"800306":{"r":7,"o":"ARI"},"800316":{"r":17,"o":"CWS"},"800325":{"r":4,"o":"MIL"},"800344":{"r":23,"o":"NYY"},"800393":{"r":19,"o":"WSH"},"800406":{"r":5,"o":"BAL"},"800419":{"r":23,"o":"CWS"},"800449":{"r":18,"o":"BAL"},"800452":{"r":19,"o":"NYM"},"800473":{"r":2,"o":"CHC"},"800508":{"r":21,"o":"DET"},"800522":{"r":3,"o":"DET"},"800537":{"r":6,"o":"LAD"},"800540":{"r":16,"o":"TEX"},"800543":{"r":1,"o":"LAD"},"800569":{"r":14,"o":"ARI"},"800571":{"r":13,"o":"TB"},"800600":{"r":9,"o":"WSH"},"800611":{"r":25,"o":"MIA"},"800612":{"r":20,"o":"ATH"},"800614":{"r":2,"o":"DET"},"800624":{"r":5,"o":"DET"},"800724":{"r":22,"o":"MIL"},"800957":{"r":16,"o":"MIA"},"801075":{"r":9,"o":"HOU"},"801078":{"r":29,"o":"STL"},"801126":{"r":15,"o":"SEA"},"801194":{"r":6,"o":"DET"},"801276":{"r":20,"o":"MIA"},"801358":{"r":23,"o":"TOR"},"801432":{"r":28,"o":"NYY"},"801523":{"r":13,"o":"NYM"},"801573":{"r":29,"o":"HOU"},"801594":{"r":17,"o":"MIN"},"801725":{"r":7,"o":"BAL"},"801739":{"r":4,"o":"NYY"},"801802":{"r":12,"o":"HOU"},"801932":{"r":19,"o":"SD"},"801938":{"r":29,"o":"ARI"},"801978":{"r":29,"o":"PIT"},"801995":{"r":27,"o":"MIA"},"802018":{"r":27,"o":"CWS"},"802117":{"r":24,"o":"ATL"},"802126":{"r":23,"o":"SF"},"802357":{"r":14,"o":"ATL"},"802408":{"r":19,"o":"STL"},"802411":{"r":21,"o":"BAL"},"802412":{"r":7,"o":"DET"},"802416":{"r":12,"o":"ARI"},"802419":{"r":23,"o":"PIT"},"802474":{"r":24,"o":"ATH"},"802686":{"r":19,"o":"ATL"},"802959":{"r":20,"o":"HOU"},"803021":{"r":26,"o":"LAA"},"803135":{"r":23,"o":"LAA"},"803141":{"r":25,"o":"SEA"},"803172":{"r":29,"o":"BAL"},"803175":{"r":12,"o":"BAL"},"803241":{"r":18,"o":"CHC"},"803284":{"r":8,"o":"COL"},"803285":{"r":1,"o":"LAA"},"803291":{"r":21,"o":"CWS"},"803349":{"r":9,"o":"ATL"},"803385":{"r":19,"o":"TOR"},"803516":{"r":4,"o":"TOR"},"803723":{"r":4,"o":"DET"},"803833":{"r":22,"o":"ATL"},"803848":{"r":23,"o":"MIL"},"803849":{"r":6,"o":"WSH"},"804109":{"r":3,"o":"MIA"},"804119":{"r":26,"o":"ATH"},"804267":{"r":6,"o":"NYM"},"804465":{"r":27,"o":"COL"},"804467":{"r":8,"o":"ARI"},"804526":{"r":3,"o":"TOR"},"804530":{"r":3,"o":"BAL"},"804541":{"r":26,"o":"TB"},"804556":{"r":9,"o":"ATH"},"804558":{"r":13,"o":"LAA"},"804560":{"r":8,"o":"LAD"},"804614":{"r":29,"o":"NYM"},"804619":{"r":18,"o":"MIN"},"804636":{"r":1,"o":"NYM"},"804668":{"r":14,"o":"PIT"},"804751":{"r":30,"o":"CHC"},"804817":{"r":4,"o":"BOS"},"804852":{"r":28,"o":"DET"},"804858":{"r":15,"o":"PHI"},"804860":{"r":20,"o":"ATL"},"804911":{"r":23,"o":"TB"},"804942":{"r":22,"o":"LAD"},"804948":{"r":7,"o":"TOR"},"804981":{"r":7,"o":"MIN"},"804995":{"r":7,"o":"BOS"},"805031":{"r":19,"o":"CWS"},"805074":{"r":24,"o":"SF"},"805127":{"r":6,"o":"ATH"},"805207":{"r":3,"o":"TB"},"805220":{"r":16,"o":"SEA"},"805255":{"r":14,"o":"CHC"},"805260":{"r":20,"o":"COL"},"805261":{"r":8,"o":"PHI"},"805326":{"r":18,"o":"CWS"},"805345":{"r":20,"o":"SF"},"805346":{"r":20,"o":"MIN"},"805347":{"r":18,"o":"ATL"},"805422":{"r":15,"o":"LAA"},"805517":{"r":18,"o":"SEA"},"805704":{"r":26,"o":"PHI"},"805706":{"r":3,"o":"TEX"},"805725":{"r":17,"o":"DET"},"805782":{"r":27,"o":"ATH"},"805790":{"r":14,"o":"PHI"},"805792":{"r":12,"o":"MIN"},"805795":{"r":2,"o":"PHI"},"805796":{"r":2,"o":"TOR"},"805800":{"r":24,"o":"PIT"},"805804":{"r":11,"o":"CWS"},"805805":{"r":1,"o":"MIN"},"805807":{"r":11,"o":"MIL"},"805809":{"r":2,"o":"WSH"},"805810":{"r":5,"o":"KC"},"805871":{"r":19,"o":"LAA"},"805880":{"r":19,"o":"COL"},"805904":{"r":24,"o":"HOU"},"805906":{"r":1,"o":"PHI"},"805951":{"r":20,"o":"NYM"},"805953":{"r":15,"o":"HOU"},"805990":{"r":27,"o":"CHC"},"806010":{"r":14,"o":"LAA"},"806046":{"r":14,"o":"WSH"},"806053":{"r":7,"o":"CLE"},"806061":{"r":28,"o":"ATL"},"806064":{"r":14,"o":"ATH"},"806067":{"r":14,"o":"MIN"},"806071":{"r":6,"o":"SEA"},"806077":{"r":13,"o":"LAD"},"806094":{"r":23,"o":"TEX"},"806121":{"r":26,"o":"NYY"},"806128":{"r":25,"o":"NYM"},"806146":{"r":1,"o":"NYY"},"806191":{"r":16,"o":"STL"},"806198":{"r":3,"o":"MIL"},"806210":{"r":15,"o":"CLE"},"806223":{"r":15,"o":"TB"},"806224":{"r":17,"o":"LAD"},"806230":{"r":9,"o":"PIT"},"806233":{"r":7,"o":"SEA"},"806252":{"r":1,"o":"CLE"},"806258":{"r":1,"o":"MIA"},"806263":{"r":15,"o":"MIN"},"806265":{"r":22,"o":"KC"},"806293":{"r":24,"o":"LAD"},"806413":{"r":16,"o":"TOR"},"806495":{"r":11,"o":"SD"},"806611":{"r":22,"o":"SF"},"806704":{"r":26,"o":"NYM"},"806823":{"r":6,"o":"CIN"},"806836":{"r":24,"o":"SEA"},"806872":{"r":15,"o":"SF"},"806953":{"r":4,"o":"MIN"},"806956":{"r":1,"o":"SD"},"806957":{"r":1,"o":"CIN"},"806958":{"r":3,"o":"SEA"},"806959":{"r":21,"o":"LAD"},"806964":{"r":1,"o":"TEX"},"806965":{"r":5,"o":"MIA"},"806978":{"r":15,"o":"COL"},"806980":{"r":24,"o":"CHC"},"806982":{"r":22,"o":"MIA"},"806984":{"r":15,"o":"CIN"},"806985":{"r":16,"o":"BOS"},"806987":{"r":22,"o":"NYM"},"806988":{"r":13,"o":"CLE"},"806992":{"r":26,"o":"MIN"},"806994":{"r":17,"o":"ATL"},"807002":{"r":25,"o":"PIT"},"807077":{"r":22,"o":"CLE"},"807080":{"r":2,"o":"ATL"},"807083":{"r":2,"o":"TB"},"807187":{"r":13,"o":"CWS"},"807257":{"r":13,"o":"CHC"},"807267":{"r":4,"o":"ARI"},"807276":{"r":6,"o":"PHI"},"807281":{"r":8,"o":"LAA"},"807284":{"r":1,"o":"ATL"},"807291":{"r":2,"o":"TEX"},"807314":{"r":21,"o":"TB"},"807383":{"r":21,"o":"NYM"},"807643":{"r":27,"o":"CIN"},"807645":{"r":10,"o":"CIN"},"807722":{"r":27,"o":"TEX"},"807726":{"r":15,"o":"DET"},"807727":{"r":12,"o":"TOR"},"807728":{"r":30,"o":"CIN"},"807739":{"r":1,"o":"SEA"},"807743":{"r":12,"o":"COL"},"807747":{"r":24,"o":"CWS"},"807748":{"r":16,"o":"SD"},"807937":{"r":24,"o":"NYM"},"807957":{"r":30,"o":"ARI"},"807974":{"r":23,"o":"MIN"},"808024":{"r":10,"o":"ARI"},"808062":{"r":16,"o":"CHC"},"808064":{"r":18,"o":"NYM"},"808087":{"r":25,"o":"ARI"},"808129":{"r":16,"o":"LAA"},"808161":{"r":22,"o":"LAA"},"808207":{"r":13,"o":"PHI"},"808232":{"r":7,"o":"PHI"},"808234":{"r":3,"o":"LAD"},"808250":{"r":22,"o":"TB"},"808265":{"r":1,"o":"BOS"},"808269":{"r":27,"o":"BOS"},"808383":{"r":13,"o":"DET"},"808535":{"r":6,"o":"ATL"},"808675":{"r":6,"o":"KC"},"808684":{"r":9,"o":"CWS"},"808690":{"r":29,"o":"MIA"},"808706":{"r":14,"o":"KC"},"808750":{"r":27,"o":"SEA"},"808825":{"r":9,"o":"DET"},"808893":{"r":7,"o":"SD"},"809092":{"r":3,"o":"PIT"},"809100":{"r":22,"o":"STL"},"809254":{"r":2,"o":"BOS"},"809343":{"r":5,"o":"HOU"},"809707":{"r":3,"o":"COL"},"809763":{"r":13,"o":"NYY"},"809789":{"r":22,"o":"HOU"},"809944":{"r":25,"o":"LAD"},"810890":{"r":28,"o":"PHI"},"810897":{"r":14,"o":"SEA"},"810982":{"r":29,"o":"ATL"},"811139":{"r":26,"o":"ARI"},"811287":{"r":15,"o":"KC"},"811290":{"r":29,"o":"DET"},"811291":{"r":24,"o":"WSH"},"811307":{"r":8,"o":"NYM"},"811309":{"r":10,"o":"MIL"},"811315":{"r":5,"o":"TB"},"811666":{"r":5,"o":"ARI"},"811764":{"r":30,"o":"ATL"},"811765":{"r":23,"o":"STL"},"811965":{"r":3,"o":"ATH"},"812151":{"r":24,"o":"CIN"},"812363":{"r":19,"o":"LAD"},"812431":{"r":20,"o":"NYY"},"812503":{"r":26,"o":"CIN"},"813335":{"r":7,"o":"LAA"},"813533":{"r":10,"o":"KC"},"813536":{"r":8,"o":"BOS"},"813666":{"r":20,"o":"CHC"},"813668":{"r":26,"o":"STL"},"813715":{"r":11,"o":"MIN"},"813820":{"r":25,"o":"STL"},"813838":{"r":11,"o":"STL"},"813841":{"r":14,"o":"SF"},"813844":{"r":16,"o":"HOU"},"813880":{"r":20,"o":"PHI"},"813896":{"r":10,"o":"HOU"},"813916":{"r":15,"o":"LAD"},"813930":{"r":21,"o":"ARI"},"813958":{"r":28,"o":"CIN"},"813989":{"r":11,"o":"LAA"},"814005":{"r":11,"o":"TOR"},"814297":{"r":8,"o":"PIT"},"814305":{"r":17,"o":"ATH"},"814307":{"r":5,"o":"LAD"},"814351":{"r":8,"o":"ATL"},"814372":{"r":16,"o":"PHI"},"814392":{"r":24,"o":"NYY"},"814409":{"r":4,"o":"WSH"},"814414":{"r":29,"o":"MIN"},"814430":{"r":14,"o":"DET"},"814450":{"r":4,"o":"BAL"},"814458":{"r":17,"o":"MIA"},"814490":{"r":6,"o":"HOU"},"814491":{"r":8,"o":"SD"},"814492":{"r":11,"o":"NYM"},"814507":{"r":23,"o":"LAD"},"814527":{"r":29,"o":"LAD"},"814696":{"r":26,"o":"LAD"},"814791":{"r":30,"o":"SEA"},"814955":{"r":23,"o":"PHI"},"815071":{"r":11,"o":"BOS"},"815119":{"r":4,"o":"STL"},"815147":{"r":17,"o":"NYY"},"815148":{"r":13,"o":"BAL"},"815154":{"r":19,"o":"ARI"},"815157":{"r":22,"o":"DET"},"815195":{"r":21,"o":"COL"},"815212":{"r":8,"o":"SF"},"815218":{"r":25,"o":"SF"},"815219":{"r":16,"o":"SF"},"815292":{"r":23,"o":"CHC"},"815298":{"r":7,"o":"SF"},"815304":{"r":6,"o":"MIL"},"815348":{"r":6,"o":"BAL"},"815352":{"r":1,"o":"CWS"},"815359":{"r":29,"o":"BOS"},"815380":{"r":12,"o":"WSH"},"815394":{"r":1,"o":"TB"},"815464":{"r":29,"o":"SF"},"815501":{"r":29,"o":"MIL"},"815520":{"r":8,"o":"MIL"},"815549":{"r":2,"o":"SEA"},"815552":{"r":16,"o":"PIT"},"815589":{"r":6,"o":"SF"},"815598":{"r":8,"o":"MIN"},"815608":{"r":4,"o":"PIT"},"815617":{"r":2,"o":"ARI"},"815626":{"r":21,"o":"ATL"},"815653":{"r":4,"o":"CIN"},"815665":{"r":27,"o":"LAD"},"815718":{"r":21,"o":"LAA"},"815785":{"r":4,"o":"CLE"},"815787":{"r":1,"o":"COL"},"815789":{"r":3,"o":"KC"},"815792":{"r":16,"o":"LAD"},"815795":{"r":17,"o":"ARI"},"815814":{"r":3,"o":"CWS"},"815816":{"r":17,"o":"MIL"},"815818":{"r":8,"o":"WSH"},"815819":{"r":8,"o":"KC"},"815824":{"r":1,"o":"CHC"},"815825":{"r":1,"o":"PIT"},"815829":{"r":20,"o":"STL"},"815832":{"r":2,"o":"HOU"},"815839":{"r":13,"o":"MIN"},"815841":{"r":12,"o":"CLE"},"815843":{"r":2,"o":"KC"},"815873":{"r":6,"o":"TOR"},"815888":{"r":1,"o":"ATH"},"815889":{"r":24,"o":"TEX"},"815890":{"r":28,"o":"CHC"},"815894":{"r":18,"o":"SD"},"815896":{"r":4,"o":"LAD"},"815897":{"r":20,"o":"CLE"},"815898":{"r":17,"o":"NYM"},"815899":{"r":23,"o":"ATL"},"815902":{"r":9,"o":"KC"},"815903":{"r":25,"o":"COL"},"815906":{"r":22,"o":"WSH"},"815908":{"r":1,"o":"MIL"},"815909":{"r":14,"o":"MIA"},"815911":{"r":10,"o":"ATH"},"815913":{"r":26,"o":"BAL"},"815915":{"r":6,"o":"LAA"},"815929":{"r":3,"o":"SF"},"815931":{"r":5,"o":"TEX"},"815983":{"r":18,"o":"WSH"},"815992":{"r":28,"o":"TOR"},"816095":{"r":29,"o":"KC"},"816102":{"r":13,"o":"WSH"},"816111":{"r":3,"o":"ATL"},"816113":{"r":1,"o":"WSH"},"816120":{"r":12,"o":"PHI"},"816152":{"r":20,"o":"BAL"},"820825":{"r":14,"o":"COL"},"820827":{"r":10,"o":"ATL"},"820835":{"r":25,"o":"CHC"},"820836":{"r":12,"o":"CWS"},"820847":{"r":16,"o":"BAL"},"820901":{"r":12,"o":"TB"},"820941":{"r":22,"o":"CIN"},"820986":{"r":2,"o":"LAA"},"821041":{"r":2,"o":"COL"},"821073":{"r":8,"o":"CIN"},"821078":{"r":21,"o":"MIA"},"821100":{"r":3,"o":"BOS"},"821107":{"r":13,"o":"STL"},"821116":{"r":13,"o":"PIT"},"821136":{"r":28,"o":"MIL"},"821150":{"r":5,"o":"BOS"},"821171":{"r":21,"o":"CLE"},"821181":{"r":6,"o":"CLE"},"821238":{"r":24,"o":"LAA"},"821270":{"r":2,"o":"MIL"},"821273":{"r":2,"o":"PIT"},"821648":{"r":16,"o":"NYY"},"821657":{"r":19,"o":"CLE"},"821692":{"r":5,"o":"COL"},"821757":{"r":9,"o":"BAL"},"821765":{"r":16,"o":"DET"},"821782":{"r":20,"o":"TB"},"821783":{"r":13,"o":"SF"},"821933":{"r":16,"o":"CWS"},"822038":{"r":27,"o":"NYM"},"822161":{"r":30,"o":"NYM"},"822215":{"r":26,"o":"SF"},"822415":{"r":20,"o":"TEX"},"822477":{"r":16,"o":"COL"},"822676":{"r":5,"o":"ATL"},"823369":{"r":9,"o":"STL"},"823745":{"r":12,"o":"SD"},"823764":{"r":17,"o":"SEA"},"823768":{"r":18,"o":"SF"},"823781":{"r":25,"o":"PHI"},"823787":{"r":1,"o":"STL"},"823807":{"r":5,"o":"CHC"},"823809":{"r":28,"o":"HOU"},"823851":{"r":25,"o":"CIN"},"823929":{"r":19,"o":"SF"},"823990":{"r":18,"o":"ATH"},"824026":{"r":2,"o":"SD"},"824415":{"r":28,"o":"MIA"},"824604":{"r":2,"o":"STL"},"824620":{"r":9,"o":"MIL"},"825094":{"r":25,"o":"DET"},"825412":{"r":4,"o":"KC"},"825479":{"r":21,"o":"HOU"},"825484":{"r":12,"o":"MIL"},"825495":{"r":25,"o":"ATL"},"825582":{"r":1,"o":"BAL"},"825646":{"r":5,"o":"TOR"},"825924":{"r":27,"o":"DET"},"825927":{"r":19,"o":"TEX"},"826173":{"r":19,"o":"DET"},"826209":{"r":5,"o":"CIN"},"826315":{"r":19,"o":"HOU"},"826536":{"r":15,"o":"ARI"},"826723":{"r":5,"o":"WSH"},"826928":{"r":16,"o":"ATL"},"826941":{"r":29,"o":"SD"},"827265":{"r":24,"o":"STL"},"827267":{"r":11,"o":"BAL"},"827292":{"r":13,"o":"BOS"},"827342":{"r":29,"o":"COL"},"827408":{"r":4,"o":"PHI"},"827463":{"r":22,"o":"SD"},"827517":{"r":10,"o":"CWS"},"827626":{"r":19,"o":"MIA"},"827640":{"r":18,"o":"DET"},"827664":{"r":17,"o":"TOR"},"827665":{"r":9,"o":"MIA"},"827672":{"r":23,"o":"DET"},"827719":{"r":18,"o":"LAA"},"827734":{"r":5,"o":"ATH"},"827759":{"r":30,"o":"ATH"},"827980":{"r":24,"o":"MIL"},"828074":{"r":29,"o":"LAA"},"828076":{"r":2,"o":"NYY"},"828084":{"r":11,"o":"TB"},"828087":{"r":18,"o":"TEX"},"828098":{"r":1,"o":"TOR"},"828137":{"r":10,"o":"WSH"},"828148":{"r":12,"o":"ATL"},"828173":{"r":14,"o":"TB"},"828202":{"r":30,"o":"MIN"},"828237":{"r":4,"o":"TB"},"828244":{"r":3,"o":"SD"},"828255":{"r":4,"o":"CHC"},"828262":{"r":5,"o":"CWS"},"828318":{"r":19,"o":"BAL"},"828344":{"r":13,"o":"ARI"},"828395":{"r":3,"o":"HOU"},"828430":{"r":28,"o":"SEA"},"828475":{"r":20,"o":"MIL"},"828557":{"r":8,"o":"TOR"},"828599":{"r":8,"o":"HOU"},"828667":{"r":14,"o":"LAD"},"828685":{"r":7,"o":"TB"},"828824":{"r":14,"o":"MIL"},"828987":{"r":4,"o":"ATL"},"828989":{"r":4,"o":"LAA"},"829033":{"r":3,"o":"NYM"},"829034":{"r":1,"o":"SF"},"829035":{"r":11,"o":"MIA"},"829037":{"r":1,"o":"HOU"},"829038":{"r":8,"o":"DET"},"829039":{"r":10,"o":"BOS"},"829040":{"r":9,"o":"CHC"},"829041":{"r":29,"o":"NYY"},"829043":{"r":22,"o":"BAL"},"829045":{"r":9,"o":"SEA"},"829048":{"r":23,"o":"ATH"},"829051":{"r":7,"o":"CIN"},"829052":{"r":8,"o":"ATH"},"829053":{"r":11,"o":"ATL"},"829058":{"r":5,"o":"LAA"},"829059":{"r":19,"o":"PIT"},"829060":{"r":27,"o":"SD"},"829063":{"r":24,"o":"SD"},"829069":{"r":26,"o":"TEX"},"829071":{"r":18,"o":"KC"},"829073":{"r":27,"o":"MIL"},"829074":{"r":8,"o":"MIA"},"829089":{"r":22,"o":"PHI"},"829093":{"r":17,"o":"BOS"},"829094":{"r":9,"o":"BOS"},"829096":{"r":17,"o":"KC"},"829162":{"r":2,"o":"CIN"},"829210":{"r":5,"o":"SD"},"829306":{"r":8,"o":"SEA"},"829398":{"r":6,"o":"BOS"},"829501":{"r":18,"o":"NYY"},"829649":{"r":30,"o":"BAL"},"829679":{"r":12,"o":"ATH"},"829699":{"r":20,"o":"WSH"},"829716":{"r":18,"o":"PIT"},"829741":{"r":12,"o":"STL"},"829764":{"r":24,"o":"MIN"},"829795":{"r":20,"o":"LAA"},"829823":{"r":12,"o":"CHC"},"829854":{"r":18,"o":"MIA"},"829860":{"r":18,"o":"HOU"},"829892":{"r":21,"o":"BOS"},"829909":{"r":27,"o":"ATL"},"829949":{"r":30,"o":"COL"},"829975":{"r":15,"o":"TEX"},"830239":{"r":8,"o":"CLE"},"830336":{"r":13,"o":"SEA"},"830402":{"r":1,"o":"KC"},"830469":{"r":20,"o":"KC"},"830769":{"r":17,"o":"HOU"},"831384":{"r":7,"o":"TEX"},"832318":{"r":27,"o":"SF"},"832324":{"r":11,"o":"PHI"},"832453":{"r":7,"o":"CHC"},"832455":{"r":10,"o":"PHI"},"832457":{"r":12,"o":"LAA"},"832698":{"r":21,"o":"KC"},"832699":{"r":27,"o":"MIN"},"832703":{"r":27,"o":"WSH"},"832795":{"r":27,"o":"HOU"},"833008":{"r":25,"o":"SD"},"834234":{"r":30,"o":"HOU"},"834240":{"r":6,"o":"SD"},"834241":{"r":28,"o":"LAA"},"834242":{"r":23,"o":"NYM"},"834311":{"r":26,"o":"PIT"},"834393":{"r":26,"o":"DET"},"834404":{"r":20,"o":"TOR"},"834605":{"r":6,"o":"TEX"},"834672":{"r":12,"o":"DET"},"834872":{"r":26,"o":"HOU"},"834962":{"r":28,"o":"CWS"},"834978":{"r":15,"o":"TOR"},"835022":{"r":19,"o":"MIL"},"835315":{"r":21,"o":"SD"},"835375":{"r":14,"o":"TEX"},"836058":{"r":29,"o":"CWS"},"836353":{"r":3,"o":"PHI"},"836582":{"r":2,"o":"SF"},"836583":{"r":9,"o":"NYM"},"836584":{"r":4,"o":"ATH"},"836585":{"r":11,"o":"CIN"},"836587":{"r":17,"o":"STL"},"836588":{"r":17,"o":"LAA"},"836589":{"r":9,"o":"TEX"},"836590":{"r":24,"o":"TB"},"836591":{"r":10,"o":"SEA"},"836592":{"r":9,"o":"SD"},"836593":{"r":23,"o":"BAL"},"836594":{"r":12,"o":"MIA"},"836598":{"r":16,"o":"KC"},"836600":{"r":16,"o":"NYM"},"836601":{"r":21,"o":"MIL"},"836602":{"r":24,"o":"BAL"},"836603":{"r":28,"o":"WSH"},"836604":{"r":23,"o":"MIA"},"836605":{"r":22,"o":"BOS"},"836608":{"r":22,"o":"CWS"},"836609":{"r":19,"o":"SEA"},"836614":{"r":23,"o":"CLE"},"837088":{"r":10,"o":"SD"},"837521":{"r":25,"o":"TB"},"837522":{"r":4,"o":"HOU"},"837611":{"r":18,"o":"TOR"},"837621":{"r":29,"o":"ATH"},"837681":{"r":20,"o":"DET"},"837824":{"r":17,"o":"CHC"},"837836":{"r":30,"o":"LAA"},"837852":{"r":22,"o":"CHC"},"837870":{"r":14,"o":"CWS"},"842353":{"r":19,"o":"PHI"},"842831":{"r":20,"o":"ARI"},"843974":{"r":30,"o":"PHI"}}}</script>
+<!-- PROSPECT-RANKINGS:END -->
+
 <script>
 'use strict';
 let allPlayers = [];        // currently-visible set (hitters or pitchers)
@@ -513,15 +539,19 @@ let currentView = 'hitters';
 let recentPromotions = [];
 let promotionsEnriched = false;
 let currentFilter = 'all';
+let prospectRanks = {};   // MLBAM player id -> { r: rank, o: 'DET' }
+let orgByTeamId  = {};    // minor/major league team id -> { name, abbr }
+let orgDataLoaded = false;
 
 /* ── MLB Stats API ────────────────────────────────────────────
    sportId: 1=MLB  11=Triple-A  12=Double-A  13=High-A  14=A
    No auth required. Returns JSON directly.
 ──────────────────────────────────────────────────────────── */
 const API = 'https://statsapi.mlb.com/api/v1';
+const SEASON = new Date().getFullYear();
 
 async function fetchStats(sportId, limit = 40) {
-  const url = `${API}/stats?stats=season&group=hitting&gameType=R&season=2026` +
+  const url = `${API}/stats?stats=season&group=hitting&gameType=R&season=${SEASON}` +
               `&sportId=${sportId}&limit=${limit}&sortStat=battingAverage&order=desc` +
               `&fields=stats,splits,stat,avg,ops,homeRuns,stolenBases,gamesPlayed,` +
               `atBats,player,fullName,id,team,name,abbreviation,position,abbreviation`;
@@ -534,7 +564,7 @@ async function fetchRecentStats(sportId, days = 7, limit = 200) {
   const end   = new Date();
   const start = new Date(end - days * 864e5);
   const fmt   = d => d.toISOString().slice(0,10);
-  const url = `${API}/stats?stats=byDateRange&group=hitting&gameType=R&season=2026` +
+  const url = `${API}/stats?stats=byDateRange&group=hitting&gameType=R&season=${SEASON}` +
               `&sportId=${sportId}&startDate=${fmt(start)}&endDate=${fmt(end)}` +
               `&limit=${limit}&sortStat=atBats&order=desc` +
               `&fields=stats,splits,stat,avg,atBats,player,id`;
@@ -585,6 +615,105 @@ async function fetchTransactions(daysBack = 14) {
   } catch(e) { return []; }
 }
 
+/* ── Parent organizations ───────────────────────────────────────
+   Every affiliate team carries parentOrgName/parentOrgId, so one call
+   maps a minor league team id to the big league club above it.
+──────────────────────────────────────────────────────────── */
+async function fetchOrgMap() {
+  const map = {};
+  const url = `${API}/teams?sportIds=1,11,12,13,14&season=${SEASON}` +
+              `&fields=teams,id,name,abbreviation,parentOrgName,parentOrgId`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return map;
+    const d = await r.json();
+    const mlbAbbr = {};
+    (d.teams || []).forEach(t => {
+      if (!t.parentOrgId && t.abbreviation) mlbAbbr[t.id] = t.abbreviation;
+    });
+    (d.teams || []).forEach(t => {
+      // An MLB club is its own organization.
+      const orgId = t.parentOrgId || t.id;
+      map[t.id] = { name: t.parentOrgName || t.name, abbr: mlbAbbr[orgId] || '' };
+    });
+  } catch(e) { /* org line just gets skipped */ }
+  return map;
+}
+
+/* ── Prospect rankings (MLB Pipeline club Top 30s) ───────────────
+   Inline copy ships with the file; a prospects.json next to it wins
+   when it is newer, so a refresh picks up new rankings without
+   re-editing the page.
+──────────────────────────────────────────────────────────── */
+function readInlineRanks() {
+  try {
+    const el = document.getElementById('prospect-rankings');
+    return el ? JSON.parse(el.textContent || '{}') : {};
+  } catch(e) { return {}; }
+}
+
+async function loadProspectRanks() {
+  const inline = readInlineRanks();
+  let best = inline;
+  try {
+    const r = await fetch('./prospects.json?t=' + Date.now(), { cache: 'no-store' });
+    if (r.ok) {
+      const live = await r.json();
+      if (live && live.ranks) {
+        const a = Date.parse(live.updated || '') || 0;
+        const b = Date.parse(inline.updated || '') || 0;
+        if (a >= b) best = live;
+      }
+    }
+  } catch(e) { /* file:// or not deployed - inline copy is fine */ }
+
+  prospectRanks = best.ranks || {};
+  const note = document.getElementById('rankings-note');
+  const n = Object.keys(prospectRanks).length;
+  if (note) {
+    note.textContent = n
+      ? `⭐ ${n} ranked prospects · MLB Pipeline club Top 30s` +
+        (best.updated ? ` · updated ${new Date(best.updated).toLocaleDateString('en-US',
+          {month:'short', day:'numeric', year:'numeric'})}` : '')
+      : '⭐ Prospect ranks unavailable — run: node update-prospects.mjs';
+  }
+}
+
+/* Both the hitter and pitcher pipelines need this, and either may run
+   first, so make it idempotent and fetch only once. */
+async function ensureOrgData() {
+  if (orgDataLoaded) return;
+  orgDataLoaded = true;
+  await Promise.all([
+    fetchOrgMap().then(m => { orgByTeamId = m; }),
+    loadProspectRanks(),
+  ]);
+}
+
+/* Attach parent organization + MLB Pipeline club rank to a player. */
+function attachOrgAndRank(p) {
+  const org = orgByTeamId[p.teamId];
+  if (org) {
+    p.orgName = org.name;
+    p.orgAbbr = org.abbr;
+  }
+  const r = prospectRanks[p.id];
+  if (r) {
+    p.prospectRank = r.r;
+    // Pipeline is authoritative on which club's list a player sits on.
+    if (r.o) p.orgAbbr = r.o;
+  }
+}
+
+/* Line 2 of a card: parent organization, with the club prospect rank
+   beside it - "Arizona Diamondbacks  #6". */
+function orgLine(p) {
+  if (!p.orgName && !p.prospectRank) return '';
+  const org  = p.orgName ? `<span class="org-name">${p.orgName}</span>` : '';
+  const rank = p.prospectRank ? `<span class="rank-num">#${p.prospectRank}</span>` : '';
+  return `<div class="org-line">${org}${rank}</div>`;
+}
+
 function parseStats(data, level) {
   const splits = data?.stats?.[0]?.splits || [];
   return splits
@@ -593,10 +722,11 @@ function parseStats(data, level) {
       return avg >= 0.200 && avg <= 0.500 && (s.stat?.gamesPlayed || 0) >= 10;
     })
     .map((s, i) => ({
-      kind:  'hitter',
-      name:  s.player?.fullName || '?',
-      id:    s.player?.id,
-      team:  s.team?.abbreviation || s.team?.name || '?',
+      kind:   'hitter',
+      name:   s.player?.fullName || '?',
+      id:     s.player?.id,
+      team:   s.team?.abbreviation || s.team?.name || '?',
+      teamId: s.team?.id,
       avg:   parseFloat(s.stat?.avg  || '0'),
       ops:   s.stat?.ops    || '—',
       hr:    s.stat?.homeRuns    || 0,
@@ -769,6 +899,7 @@ function renderCard(p) {
             · <span style="color:#94a3b8">#${p.rank}</span>
             · ${p.games}G
           </div>
+          ${orgLine(p)}
         </div>
         <div style="text-align:right">
           <div class="score-big" style="color:${u.color}">${p.score||'—'}</div>
@@ -804,7 +935,8 @@ function renderGrid() {
     return;
   }
   let list = allPlayers;
-  if (currentFilter !== 'all')  list = allPlayers.filter(p => p.level === currentFilter);
+  if (currentFilter === 'ranked')   list = allPlayers.filter(p => p.prospectRank);
+  else if (currentFilter !== 'all') list = allPlayers.filter(p => p.level === currentFilter);
   grid.innerHTML = list.length
     ? list.map(renderAnyCard).join('')
     : '<div class="empty-state">No players for this filter.</div>';
@@ -815,7 +947,7 @@ function renderGrid() {
    the most games for each group, so we pick the player's primary stint
    for the year rather than blending. */
 async function fetchPlayerSeasonLine(personId) {
-  const url = `${API}/people/${personId}/stats?stats=season&group=hitting,pitching&season=2026`;
+  const url = `${API}/people/${personId}/stats?stats=season&group=hitting,pitching&season=${SEASON}`;
   try {
     const r = await fetch(url);
     if (!r.ok) return null;
@@ -912,6 +1044,9 @@ function renderPromotionCard(p) {
             ${p.pos ? ' · ' + p.pos : ''}
             · <span style="color:#16a34a;font-weight:700">CALLED UP</span>
           </div>
+          ${prospectRanks[p.id] ? `<div class="org-line">` +
+            `<span class="org-name">Prospect</span>` +
+            `<span class="rank-num">#${prospectRanks[p.id].r}</span></div>` : ''}
         </div>
         <div style="text-align:right">
           <div class="score-big" style="color:${u.color}">${score}</div>
@@ -1047,8 +1182,11 @@ async function loadData() {
 
     /* ── Score and sort ── */
     stepActive('step-score');
+    await ensureOrgData();
+
     let players = [...mlbPlayers, ...aaaPlayers, ...aaPlayers, ...aplusPlayers, ...aPlayers];
     players.forEach(p => {
+      attachOrgAndRank(p);
       attachTrend(p, recentMap);
       p.score   = scorePlayer(p, promotedIds);
       p.signals = buildSignals(p);
@@ -1087,7 +1225,7 @@ async function loadData() {
    5. Card catalyst (0-3) — promoted / call-up watch / bargain window
 ─────────────────────────────────────────────────────────────── */
 async function fetchPitcherStats(sportId, limit = 40) {
-  const url = `${API}/stats?stats=season&group=pitching&gameType=R&season=2026` +
+  const url = `${API}/stats?stats=season&group=pitching&gameType=R&season=${SEASON}` +
               `&sportId=${sportId}&limit=${limit}&sortStat=earnedRunAverage&order=asc` +
               `&fields=stats,splits,stat,era,whip,strikeOuts,inningsPitched,wins,losses,` +
               `gamesPitched,gamesStarted,saves,player,fullName,id,team,name,abbreviation,position,abbreviation`;
@@ -1100,7 +1238,7 @@ async function fetchRecentPitcherStats(sportId, days = 7, limit = 200) {
   const end   = new Date();
   const start = new Date(end - days * 864e5);
   const fmt   = d => d.toISOString().slice(0,10);
-  const url = `${API}/stats?stats=byDateRange&group=pitching&gameType=R&season=2026` +
+  const url = `${API}/stats?stats=byDateRange&group=pitching&gameType=R&season=${SEASON}` +
               `&sportId=${sportId}&startDate=${fmt(start)}&endDate=${fmt(end)}` +
               `&limit=${limit}&sortStat=inningsPitched&order=desc` +
               `&fields=stats,splits,stat,era,inningsPitched,player,id`;
@@ -1141,6 +1279,7 @@ function parsePitcherStats(data, level) {
       name:      s.player?.fullName || '?',
       id:        s.player?.id,
       team:      s.team?.abbreviation || s.team?.name || '?',
+      teamId:    s.team?.id,
       era:       x.era,
       whip:      parseFloat(s.stat?.whip || '0'),
       so:        s.stat?.strikeOuts || 0,
@@ -1275,6 +1414,7 @@ function renderPitcherCard(p) {
             · <span style="color:#94a3b8">#${p.rank}</span>
             · ${p.games}G${p.starts ? '/' + p.starts + 'GS' : ''}
           </div>
+          ${orgLine(p)}
         </div>
         <div style="text-align:right">
           <div class="score-big" style="color:${u.color}">${p.score||'—'}</div>
@@ -1385,8 +1525,11 @@ async function loadPitchers() {
     stepDone('step-promo');
 
     stepActive('step-score');
+    await ensureOrgData();
+
     let pitchers = [...mlbP, ...aaaP, ...aaP, ...aplusP, ...aP];
     pitchers.forEach(p => {
+      attachOrgAndRank(p);
       attachPitcherTrend(p, recentMap);
       p.score   = scorePitcher(p, promotedIds);
       p.signals = buildPitcherSignals(p);
