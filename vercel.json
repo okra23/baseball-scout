@@ -1,8 +1,5 @@
 {
-  "version": 2,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "public": true,
-  "outputDirectory": "public",
-  "routes": [
-    { "src": "/(.*)", "dest": "/$1" }
-  ]
+  "outputDirectory": "public"
 }

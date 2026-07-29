@@ -1,12 +1,14 @@
 {
   "name": "baseball-scout",
   "version": "1.0.0",
+  "private": true,
   "description": "Baseball prospect scouting dashboard - live MLB Stats API",
   "scripts": {
-    "dev": "npx serve public -p 3000",
-    "build": "echo Static site - no build step needed"
+    "dev": "npx --yes serve public -l 3010",
+    "build": "echo Static site - nothing to build",
+    "update-ranks": "node update-prospects.mjs"
   },
-  "devDependencies": {
-    "serve": "^14.0.0"
+  "engines": {
+    "node": "22.x"
   }
 }
