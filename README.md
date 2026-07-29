@@ -19,6 +19,28 @@ The organization line appears on hitter and pitcher cards. Call-up cards in the
 Promoted view show `Prospect #N` instead, since their team line is already the
 big league club.
 
+## Watchlist
+
+Tap the ☆ on any card to follow a player; the **Watchlist** tab shows everyone
+you have saved, with a count badge in the nav.
+
+Only the player id, name and kind are stored — every stat is re-fetched live
+each time you open the tab. That means a watched player:
+
+- **stays on the list after he drops off the leaderboards**, which is the whole
+  point of following someone. His card shows current season stats with a "not on
+  the current leaderboards" note instead of a buy score.
+- **follows his own promotions.** Each refresh looks up his current club, so a
+  player who moves from Double-A to Triple-A shows the new affiliate, the new
+  level, and the right parent organization without you doing anything.
+- **still shows his organization and prospect rank**, same as anywhere else.
+
+If he *is* on a leaderboard that session, the card keeps its full buy score,
+urgency badge and heating/cooling trend chip.
+
+Storage is `localStorage` under `bs-watchlist-v1`, so the list is per browser —
+it survives refreshes and redeploys, but does not sync between devices.
+
 ## Data sources
 
 **Stats and parent organizations — MLB Stats API (`statsapi.mlb.com`), live.**

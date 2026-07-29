@@ -291,6 +291,54 @@ body {
   margin-top: 5px;
 }
 .org-name { font-size: 12px; font-weight: 700; color: #475569; }
+
+.watch-count {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 6px;
+  margin-left: 4px;
+  border-radius: 20px;
+  background: #f59e0b;
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.watch-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 19px;
+  line-height: 1;
+  padding: 0 2px;
+  color: #cbd5e1;
+  transition: color 0.15s, transform 0.1s;
+}
+.watch-btn:hover    { color: #f59e0b; transform: scale(1.15); }
+.watch-btn.on       { color: #f59e0b; }
+
+.watch-note {
+  font-size: 11px;
+  color: #94a3b8;
+  font-style: italic;
+  margin-bottom: 10px;
+}
+.watch-remove {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.watch-remove:hover { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
 .rank-num {
   font-size: 13px;
   font-weight: 900;
@@ -434,7 +482,7 @@ body {
     <div class="nav-links">
       <a class="nav-link active" id="nav-hitters" onclick="setView('hitters', this)">Hitters</a>
       <a class="nav-link" id="nav-pitchers" onclick="setView('pitchers', this)">Pitchers</a>
-      <a class="nav-link soon" title="Coming soon">Watchlist <span class="soon-tag">SOON</span></a>
+      <a class="nav-link" id="nav-watchlist" onclick="setView('watchlist', this)">Watchlist <span class="watch-count" id="watch-count" style="display:none">0</span></a>
       <a class="nav-link soon" title="Coming soon">Price Movers <span class="soon-tag">SOON</span></a>
     </div>
     <div class="nav-right">
@@ -540,8 +588,12 @@ let recentPromotions = [];
 let promotionsEnriched = false;
 let currentFilter = 'all';
 let prospectRanks = {};   // MLBAM player id -> { r: rank, o: 'DET' }
-let orgByTeamId  = {};    // minor/major league team id -> { name, abbr }
+let orgByTeamId  = {};    // minor/major league team id -> { name, abbr, sportId }
 let orgDataLoaded = false;
+let watchlist = [];       // [{ id, name, kind, addedAt }]
+let watchPlayers = [];    // hydrated watchlist rows for rendering
+let watchLoading = false;
+const playerIndex = new Map();  // id -> the richest player object we have seen
 
 /* ── MLB Stats API ────────────────────────────────────────────
    sportId: 1=MLB  11=Triple-A  12=Double-A  13=High-A  14=A
@@ -622,7 +674,7 @@ async function fetchTransactions(daysBack = 14) {
 async function fetchOrgMap() {
   const map = {};
   const url = `${API}/teams?sportIds=1,11,12,13,14&season=${SEASON}` +
-              `&fields=teams,id,name,abbreviation,parentOrgName,parentOrgId`;
+              `&fields=teams,id,name,abbreviation,parentOrgName,parentOrgId,sport`;
   try {
     const r = await fetch(url);
     if (!r.ok) return map;
@@ -634,7 +686,11 @@ async function fetchOrgMap() {
     (d.teams || []).forEach(t => {
       // An MLB club is its own organization.
       const orgId = t.parentOrgId || t.id;
-      map[t.id] = { name: t.parentOrgName || t.name, abbr: mlbAbbr[orgId] || '' };
+      map[t.id] = {
+        name: t.parentOrgName || t.name,
+        abbr: mlbAbbr[orgId] || '',
+        sportId: t.sport?.id || null,
+      };
     });
   } catch(e) { /* org line just gets skipped */ }
   return map;
@@ -712,6 +768,275 @@ function orgLine(p) {
   const org  = p.orgName ? `<span class="org-name">${p.orgName}</span>` : '';
   const rank = p.prospectRank ? `<span class="rank-num">#${p.prospectRank}</span>` : '';
   return `<div class="org-line">${org}${rank}</div>`;
+}
+
+/* ── Watchlist ───────────────────────────────────────────────────
+   Saved in localStorage, so it is per-browser and survives refreshes
+   and redeploys. Only the id/name/kind is stored - every stat is
+   re-fetched live, so a watched player stays current, and stays on the
+   list even after he drops off the leaderboards. That is the point of
+   following someone.
+──────────────────────────────────────────────────────────── */
+const WATCH_KEY = 'bs-watchlist-v1';
+
+function loadWatchlist() {
+  try {
+    const raw = localStorage.getItem(WATCH_KEY);
+    watchlist = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(watchlist)) watchlist = [];
+  } catch(e) { watchlist = []; }
+  updateWatchCount();
+}
+
+function saveWatchlist() {
+  try {
+    localStorage.setItem(WATCH_KEY, JSON.stringify(watchlist));
+  } catch(e) {
+    console.warn('Could not save watchlist', e);
+  }
+  updateWatchCount();
+}
+
+function updateWatchCount() {
+  const el = document.getElementById('watch-count');
+  if (!el) return;
+  el.textContent = watchlist.length;
+  el.style.display = watchlist.length ? 'inline-block' : 'none';
+}
+
+function isWatched(id) {
+  return watchlist.some(w => w.id === id);
+}
+
+/* Remember every player we render so the star can look them up by id
+   without smuggling names through inline onclick handlers. */
+function indexPlayer(p) {
+  if (!p || !p.id) return;
+  const prev = playerIndex.get(p.id);
+  playerIndex.set(p.id, prev ? { ...prev, ...p } : { ...p });
+}
+
+function toggleWatch(id, ev) {
+  if (ev) ev.stopPropagation();
+  const p = playerIndex.get(id) || {};
+  if (isWatched(id)) {
+    watchlist = watchlist.filter(w => w.id !== id);
+  } else {
+    watchlist.push({
+      id,
+      name: p.name || 'Player ' + id,
+      kind: p.kind || 'hitter',
+      addedAt: new Date().toISOString(),
+    });
+  }
+  saveWatchlist();
+
+  // Repaint stars in place; rebuild fully when viewing the watchlist.
+  if (currentView === 'watchlist') { renderWatchGrid(); return; }
+  document.querySelectorAll(`.watch-btn[data-id="${id}"]`).forEach(b => {
+    const on = isWatched(id);
+    b.classList.toggle('on', on);
+    b.textContent = on ? '★' : '☆';
+    b.title = on ? 'Remove from watchlist' : 'Add to watchlist';
+  });
+}
+
+function watchBtn(p) {
+  indexPlayer(p);
+  const on = isWatched(p.id);
+  return `<button class="watch-btn${on ? ' on' : ''}" data-id="${p.id}" ` +
+         `title="${on ? 'Remove from' : 'Add to'} watchlist" ` +
+         `onclick="toggleWatch(${p.id}, event)">${on ? '★' : '☆'}</button>`;
+}
+
+/* Current club for each watched player, in one call. Catches promotions:
+   a player called up since you saved him shows his new team. */
+async function fetchCurrentTeams(ids) {
+  const map = {};
+  if (!ids.length) return map;
+  try {
+    const url = `${API}/people?personIds=${ids.join(',')}&hydrate=currentTeam` +
+                `&fields=people,id,fullName,primaryPosition,abbreviation,currentTeam,name`;
+    const r = await fetch(url);
+    if (!r.ok) return map;
+    const d = await r.json();
+    (d.people || []).forEach(pe => {
+      map[pe.id] = {
+        name: pe.fullName,
+        pos: pe.primaryPosition?.abbreviation || '',
+        teamId: pe.currentTeam?.id || null,
+        teamName: pe.currentTeam?.name || '',
+      };
+    });
+  } catch(e) { /* fall back to stored names */ }
+  return map;
+}
+
+/* Season line for one player. Needs the sportId of the level he is at,
+   which we get from his current team via the org map. */
+async function fetchSeasonLine(id, sportId) {
+  const sp = sportId ? `&sportId=${sportId}` : '';
+  const url = `${API}/people/${id}/stats?stats=season&group=hitting,pitching` +
+              `&season=${SEASON}${sp}`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const d = await r.json();
+    const out = { hitting: null, pitching: null };
+    for (const g of (d.stats || [])) {
+      const best = (g.splits || [])[0];
+      if (!best) continue;
+      const name = g.group?.displayName;
+      if (name === 'hitting')  out.hitting  = best;
+      if (name === 'pitching') out.pitching = best;
+    }
+    return out;
+  } catch(e) { return null; }
+}
+
+const SPORT_LEVEL = { 1:'MLB', 11:'AAA', 12:'AA', 13:'A+', 14:'A' };
+
+async function loadWatchData() {
+  watchLoading = true;
+  await ensureOrgData();
+
+  const ids = watchlist.map(w => w.id);
+  const teams = await fetchCurrentTeams(ids);
+
+  watchPlayers = await Promise.all(watchlist.map(async w => {
+    const cur  = teams[w.id] || {};
+    const org  = cur.teamId ? orgByTeamId[cur.teamId] : null;
+    const line = await fetchSeasonLine(w.id, org?.sportId);
+
+    // If he is on a leaderboard right now, reuse that richer card data
+    // (score, trend, breakdown) instead of the bare season line.
+    const live = [...allHitters, ...allPitchers].find(p => p.id === w.id);
+
+    const row = {
+      id: w.id,
+      kind: w.kind,
+      name: cur.name || w.name,
+      pos: cur.pos || live?.pos || '',
+      team: cur.teamName || live?.team || '—',
+      teamId: cur.teamId,
+      level: org?.sportId ? SPORT_LEVEL[org.sportId] || '' : (live?.level || ''),
+      hitting: line?.hitting || null,
+      pitching: line?.pitching || null,
+      live: live || null,
+      addedAt: w.addedAt,
+    };
+    attachOrgAndRank(row);
+    indexPlayer(row);
+    return row;
+  }));
+
+  watchLoading = false;
+}
+
+function watchStatGrid(p) {
+  const pit = p.pitching;
+  const hit = p.hitting;
+  const preferPitching = p.kind === 'pitcher' ? !!pit : (!hit && !!pit);
+
+  if (preferPitching && pit) {
+    const s = pit.stat || {};
+    const ip = parseIP(s.inningsPitched);
+    const k9v = ip > 0 ? ((s.strikeOuts || 0) * 9 / ip) : 0;
+    return `
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-val">${parseFloat(s.era || 0).toFixed(2)}</div><div class="stat-lbl">ERA</div></div>
+        <div class="stat"><div class="stat-val">${s.whip ? parseFloat(s.whip).toFixed(2) : '—'}</div><div class="stat-lbl">WHIP</div></div>
+        <div class="stat"><div class="stat-val">${k9v.toFixed(1)}</div><div class="stat-lbl">K/9</div></div>
+        <div class="stat"><div class="stat-val">${s.inningsPitched || '0'}</div><div class="stat-lbl">IP</div></div>
+      </div>`;
+  }
+  if (hit) {
+    const s = hit.stat || {};
+    return `
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-val">${fmtAvg(parseFloat(s.avg || 0))}</div><div class="stat-lbl">AVG</div></div>
+        <div class="stat"><div class="stat-val">${s.ops || '—'}</div><div class="stat-lbl">OPS</div></div>
+        <div class="stat"><div class="stat-val">${s.homeRuns || 0}</div><div class="stat-lbl">HR</div></div>
+        <div class="stat"><div class="stat-val">${s.stolenBases || 0}</div><div class="stat-lbl">SB</div></div>
+      </div>`;
+  }
+  return `<div class="watch-note">No ${SEASON} stats yet at this level.</div>`;
+}
+
+function renderWatchCard(p) {
+  const score = p.live?.score;
+  const u = getUrgency(score || 5);
+  const games = p.hitting?.stat?.gamesPlayed || p.pitching?.stat?.gamesPitched || 0;
+
+  return `
+    <div class="player-card" style="border-left-color:${score ? u.border : '#cbd5e1'};background:${score ? u.bg : 'white'};">
+      <div class="card-header">
+        <div>
+          <div class="player-name">${p.name}</div>
+          <div class="player-meta">
+            ${p.team}
+            ${p.level ? ` · <span style="color:${levelColor(p.level)};font-weight:700">${p.level}</span>` : ''}
+            ${p.pos ? ' · ' + p.pos : ''}
+            ${games ? ' · ' + games + 'G' : ''}
+          </div>
+          ${orgLine(p)}
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:6px">
+          ${watchBtn(p)}
+          ${score ? `<div style="text-align:right">
+            <div class="score-big" style="color:${u.color}">${score}</div>
+            <div class="score-denom">/10</div>
+          </div>` : ''}
+        </div>
+      </div>
+      ${score
+        ? `<span class="urgency-badge" style="background:${u.color}18;color:${u.color}">${u.label}</span>`
+        : `<div class="watch-note">Not on the current leaderboards — tracking anyway.</div>`}
+      ${p.live ? renderTrendChip(p.live) : ''}
+      ${watchStatGrid(p)}
+      <a class="ebay-btn" href="${ebayUrl(p.name)}" target="_blank">🛒 Find Cards on eBay</a>
+      <button class="watch-remove" onclick="toggleWatch(${p.id}, event)">✕ Remove from watchlist</button>
+    </div>`;
+}
+
+function renderWatchGrid() {
+  const grid = document.getElementById('player-grid');
+  if (!watchlist.length) {
+    grid.innerHTML =
+      '<div class="empty-state">Your watchlist is empty.<br><br>' +
+      'Tap the ☆ on any player card to start following them. ' +
+      'Watched players stay here even after they fall off the leaderboards.</div>';
+    return;
+  }
+  if (watchLoading) {
+    grid.innerHTML = '<div class="empty-state">Loading your watchlist…</div>';
+    return;
+  }
+  // watchPlayers is a cache of hydrated rows; drop anything just un-starred
+  // so a removal takes effect without waiting on a re-fetch.
+  const ids  = new Set(watchlist.map(w => w.id));
+  const list = watchPlayers
+    .filter(p => ids.has(p.id))
+    .sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
+
+  grid.innerHTML = list.length
+    ? list.map(renderWatchCard).join('')
+    : '<div class="empty-state">Loading your watchlist…</div>';
+}
+
+async function showWatchlist() {
+  const grid = document.getElementById('player-grid');
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('error-state').style.display   = 'none';
+  document.getElementById('summary-strip').style.display = 'none';
+  grid.style.display = 'grid';
+
+  if (!watchlist.length) { renderWatchGrid(); return; }
+
+  watchLoading = true;
+  renderWatchGrid();
+  await loadWatchData();
+  if (currentView === 'watchlist') renderWatchGrid();
 }
 
 function parseStats(data, level) {
@@ -901,9 +1226,12 @@ function renderCard(p) {
           </div>
           ${orgLine(p)}
         </div>
-        <div style="text-align:right">
-          <div class="score-big" style="color:${u.color}">${p.score||'—'}</div>
-          <div class="score-denom">/10</div>
+        <div style="display:flex;align-items:flex-start;gap:6px">
+          ${watchBtn(p)}
+          <div style="text-align:right">
+            <div class="score-big" style="color:${u.color}">${p.score||'—'}</div>
+            <div class="score-denom">/10</div>
+          </div>
         </div>
       </div>
       <div class="meter">${meter}</div>
@@ -1048,9 +1376,12 @@ function renderPromotionCard(p) {
             `<span class="org-name">Prospect</span>` +
             `<span class="rank-num">#${prospectRanks[p.id].r}</span></div>` : ''}
         </div>
-        <div style="text-align:right">
-          <div class="score-big" style="color:${u.color}">${score}</div>
-          <div class="score-denom">/10</div>
+        <div style="display:flex;align-items:flex-start;gap:6px">
+          ${watchBtn({ id: p.id, name: p.name, kind: p.pos && /HP|P$/.test(p.pos) ? 'pitcher' : 'hitter' })}
+          <div style="text-align:right">
+            <div class="score-big" style="color:${u.color}">${score}</div>
+            <div class="score-denom">/10</div>
+          </div>
         </div>
       </div>
       <div class="meter">${meter}</div>
@@ -1416,9 +1747,12 @@ function renderPitcherCard(p) {
           </div>
           ${orgLine(p)}
         </div>
-        <div style="text-align:right">
-          <div class="score-big" style="color:${u.color}">${p.score||'—'}</div>
-          <div class="score-denom">/10</div>
+        <div style="display:flex;align-items:flex-start;gap:6px">
+          ${watchBtn(p)}
+          <div style="text-align:right">
+            <div class="score-big" style="color:${u.color}">${p.score||'—'}</div>
+            <div class="score-denom">/10</div>
+          </div>
         </div>
       </div>
       <div class="meter">${meter}</div>
@@ -1572,6 +1906,17 @@ function setView(view, el) {
 
   document.getElementById('error-state').style.display = 'none';
 
+  // The level filters do not apply to the watchlist.
+  const filters = document.querySelector('.filters');
+  const note    = document.getElementById('rankings-note');
+  if (filters) filters.style.display = view === 'watchlist' ? 'none' : 'flex';
+  if (note)    note.style.display    = view === 'watchlist' ? 'none' : 'block';
+
+  if (view === 'watchlist') {
+    showWatchlist();
+    return;
+  }
+
   if (view === 'pitchers') {
     if (pitchersLoaded) {
       allPlayers = allPitchers;
@@ -1592,7 +1937,9 @@ function setView(view, el) {
 }
 
 function refresh() {
-  if (currentView === 'pitchers') {
+  if (currentView === 'watchlist') {
+    showWatchlist();
+  } else if (currentView === 'pitchers') {
     pitchersLoaded = false;
     loadPitchers();
   } else {
@@ -1603,6 +1950,7 @@ function refresh() {
 // Init
 document.getElementById('date-badge').textContent =
   new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+loadWatchlist();
 loadData();
 </script>
 </body>
