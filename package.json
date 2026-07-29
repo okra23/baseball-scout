@@ -7,8 +7,5 @@
     "dev": "npx --yes serve public -l 3010",
     "build": "echo Static site - nothing to build",
     "update-ranks": "node update-prospects.mjs"
-  },
-  "engines": {
-    "node": "22.x"
   }
 }
