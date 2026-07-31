@@ -89,20 +89,6 @@ body {
   background: #eff6ff;
   color: #2563eb;
 }
-.nav-link.soon {
-  color: #cbd5e1;
-  cursor: not-allowed;
-}
-.nav-link.soon:hover { background: transparent; color: #cbd5e1; }
-.nav-link .soon-tag {
-  font-size: 9px;
-  font-weight: 800;
-  padding: 2px 5px;
-  border-radius: 4px;
-  background: #f1f5f9;
-  color: #94a3b8;
-  letter-spacing: 0.5px;
-}
 .nav-right {
   display: flex;
   align-items: center;
@@ -532,7 +518,6 @@ body {
       <a class="nav-link active" id="nav-hitters" onclick="setView('hitters', this)">Hitters</a>
       <a class="nav-link" id="nav-pitchers" onclick="setView('pitchers', this)">Pitchers</a>
       <a class="nav-link" id="nav-watchlist" onclick="setView('watchlist', this)">Watchlist <span class="watch-count" id="watch-count" style="display:none">0</span></a>
-      <a class="nav-link soon" title="Coming soon">Price Movers <span class="soon-tag">SOON</span></a>
     </div>
     <div class="nav-right">
       <span class="date-badge" id="date-badge">—</span>
@@ -2405,7 +2390,7 @@ function setView(view, el) {
   if (view === currentView) return;
   currentView = view;
   document.querySelectorAll('.nav-link').forEach(n => {
-    if (!n.classList.contains('soon')) n.classList.remove('active');
+    n.classList.remove('active');
   });
   if (el) el.classList.add('active');
 

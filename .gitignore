@@ -8,3 +8,9 @@ preview*.png
 # atomic-write leftovers from update-prospects.mjs
 *.tmp
 *.new
+
+# Personal watchlist sync files. Keeping one in this folder is fine - Dropbox
+# syncs it between computers - but it is your data, not the app's, and it
+# changes every time you star a player.
+*watchlist*.json
+!public/prospects.json
